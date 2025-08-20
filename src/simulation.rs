@@ -6,12 +6,8 @@ use libadwaita::prelude::AdwWindowExt;
 use std::collections::HashMap;
 use std::rc::Rc; // For shared ownership
 use std::cell::RefCell; // For interior mutability
-use rand::Rng; // For random number generation
-// NOTE: To use 'rand', add the following to your Cargo.toml under [dependencies]:
-// rand = "0.8"
-use chrono; // ADDED: For current time in console output
-// NOTE: To use 'chrono', add the following to your Cargo.toml under [dependencies]:
-// chrono = "0.4"
+use rand::Rng;
+use chrono; 
 
 
 use super::monster_manager::{self, Monster};
@@ -217,7 +213,7 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
     main_vbox.append(&console_scrolled_window);
 
     // Initial message to the console
-    if let Ok(mut buffer) = console_buffer.try_borrow_mut() {
+    if let Ok(buffer) = console_buffer.try_borrow_mut() {
         buffer.insert(&mut buffer.start_iter(), "Simulation console: Last 50 lines will be displayed here.\n");
     }
 
@@ -257,7 +253,7 @@ fn calculate_damage(num_dice: i32, dice_used: &str, ability_mod: i32) -> (i32, S
     let mut damage_rolls = Vec::new(); // Store individual rolls
 
     for _ in 0..num_dice {
-        let roll = rng.gen_range(1..=max_dice_val);
+        let roll = rng.random_range(1..=max_dice_val);
         damage_rolls.push(roll.to_string()); // Convert to string for joining
         total_damage += roll;
     }
@@ -362,7 +358,7 @@ fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextB
                 let attack_name = attack_clone.attack_name.clone();
                 let attacks_per_turn = attack_clone.num_attacks;
 
-                if let Ok(mut buffer) = console_buffer_clone.try_borrow_mut() {
+                if let Ok(buffer) = console_buffer_clone.try_borrow_mut() {
                     let mut iter = buffer.end_iter();
                     
                     buffer.insert(&mut iter, &format!("{}: {} started an attack using {} {} times.\n",
@@ -371,7 +367,7 @@ fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextB
                     for i in 0..attacks_per_turn {
                         // Calculate To Hit
                         let mut rng = rand::rngs::ThreadRng::default();
-                        let d20_roll = rng.gen_range(1..=20);
+                        let d20_roll = rng.random_range(1..=20);
                         let ability_mod = match attack_clone.ability_used.as_str() {
                             "str" => combatant_clone.monster_template.str_mod,
                             "dex" => combatant_clone.monster_template.dex_mod,
