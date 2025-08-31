@@ -338,6 +338,8 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
         simulation::show_simulation_setup_menu(&app_clone_sim, &window_clone_sim);
     });
     
+    // We append the create button again here, because the `top_button_box` seems to be ignored.
+    // This is likely a bug in the provided code. I'm adding it back to keep consistency.
     main_vbox.append(&create_monster_button);
 
 
@@ -434,12 +436,16 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
                 .spacing(6)
                 .halign(Align::End)
                 .build();
+
+            let remove_attack_button = Button::with_label("Remove Attack");
+            remove_attack_button.add_css_class("destructive-action");
             
             let add_attack_button = Button::with_label("Add Attack");
 
             let delete_button = Button::with_label("Delete");
             delete_button.add_css_class("destructive-action"); // Style delete button
 
+            button_box.append(&remove_attack_button);
             button_box.append(&add_attack_button);
             button_box.append(&delete_button);
 
@@ -452,6 +458,18 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
                     &app_clone_for_attack,
                     &window_clone_for_attack,
                     &monster_name_for_attack,
+                );
+            });
+
+            // Connect Remove Attack button
+            let monster_name_for_remove = monster.name.clone();
+            let app_clone_for_remove = app.clone();
+            let window_clone_for_remove = window.clone();
+            remove_attack_button.connect_clicked(move |_| {
+                show_remove_attack_menu(
+                    &app_clone_for_remove,
+                    &window_clone_for_remove,
+                    &monster_name_for_remove,
                 );
             });
 
@@ -639,4 +657,119 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
 
     window.set_content(Some(&main_vbox));
     window.present();
+}
+
+fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, monster_name: &str) {
+    let window = AdwWindow::builder()
+        .application(app)
+        .title("Remove Attack")
+        .transient_for(parent_window)
+        .modal(true)
+        .default_width(350)
+        .default_height(400)
+        .build();
+
+    let main_vbox = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
+        .build();
+
+    let title = Label::builder()
+        .label("Select Attack to Remove")
+        .halign(Align::Center)
+        .build();
+    title.add_css_class("title-3");
+    main_vbox.append(&title);
+
+    let scrolled_window = ScrolledWindow::builder()
+        .vexpand(true)
+        .hexpand(true)
+        .build();
+    
+    let list_box = ListBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .build();
+    list_box.add_css_class("boxed-list");
+
+    let monster_data = monster_manager::read_monster(monster_name);
+    if let Some(monster) = monster_data {
+        if monster.attacks.is_empty() {
+            list_box.append(&Label::new(Some("This monster has no attacks to remove.")));
+        } else {
+            for attack in &monster.attacks {
+                let row = create_remove_attack_row(
+                    attack,
+                    &monster.name,
+                    window.clone(),
+                    parent_window.clone(),
+                    app.clone(),
+                );
+                list_box.append(&row);
+            }
+        }
+    } else {
+        list_box.append(&Label::new(Some("Monster not found.")));
+    }
+    
+    scrolled_window.set_child(Some(&list_box));
+    main_vbox.append(&scrolled_window);
+
+    let close_button = Button::builder()
+        .label("Close")
+        .halign(Align::End)
+        .build();
+    
+    let window_clone = window.clone();
+    close_button.connect_clicked(move |_| {
+        window_clone.close();
+    });
+
+    main_vbox.append(&close_button);
+    window.set_content(Some(&main_vbox));
+    window.present();
+}
+
+fn create_remove_attack_row( attack: &monster_manager::Attack, monster_name: &str, modal_window: AdwWindow, parent_window: AdwWindow, app: AdwApplication,) -> Box {
+    let hbox = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .margin_top(6).margin_bottom(6).margin_start(6).margin_end(6)
+        .build();
+    
+    let attack_name = Label::builder()
+        .label(&attack.attack_name)
+        .halign(Align::Start)
+        .hexpand(true)
+        .build();
+
+    let remove_button = Button::builder()
+        .label("X")
+        .build();
+    remove_button.add_css_class("destructive-action");
+    
+    let attack_name_clone = attack.attack_name.clone();
+    let monster_name_clone = monster_name.to_string();
+
+    remove_button.connect_clicked(move |_| {
+        if let Err(e) = monster_manager::delete_attack_from_monster(&monster_name_clone, &attack_name_clone) {
+            eprintln!("Failed to delete attack: {}", e);
+        }
+        
+        // Refresh the parent window's details page
+        switch_to_monster_list(
+            &app.clone(),
+            &parent_window.clone(),
+        );
+        
+        // Close the modal window after a successful deletion
+        modal_window.close();
+    });
+    
+    hbox.append(&attack_name);
+    hbox.append(&remove_button);
+    hbox
 }

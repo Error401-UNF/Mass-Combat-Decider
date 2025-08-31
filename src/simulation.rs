@@ -9,7 +9,6 @@ use std::cell::RefCell; // For interior mutability
 use rand::Rng;
 use chrono; 
 
-
 use super::monster_manager::{self, Monster};
 use super::ui_manager; // Import ui_manager to switch back to monster list
 
@@ -18,6 +17,16 @@ use super::ui_manager; // Import ui_manager to switch back to monster list
 struct Combatant {
     instance_name: String, // e.g., "Goblin 1"
     monster_template: Monster, // The base monster data
+    current_hp: i32,
+}
+
+/// A struct to hold the shared state of the simulation.
+#[derive(Clone)]
+struct SimulationState {
+    combatants: Rc<RefCell<Vec<Combatant>>>,
+    flow_box: FlowBox,
+    console_buffer: Rc<RefCell<TextBuffer>>,
+    console_text_view: TextView,
 }
 
 /// This function creates the modal window for selecting monsters and their quantities.
@@ -153,6 +162,7 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
 
             combatants.push(Combatant {
                 instance_name,
+                current_hp: monster.hp, // Set initial HP
                 monster_template: monster.clone(),
             });
         }
@@ -179,68 +189,255 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
     simulation_title.add_css_class("title-1"); // Use a larger title class
     main_vbox.append(&simulation_title);
 
-    // Add Exit Simulation button
-    let exit_button = Button::builder()
-        .label("Exit Simulation")
-        .halign(Align::Center) // Center the button horizontally
-        .margin_bottom(12) // Add some margin below it
-        .build();
-    exit_button.add_css_class("destructive-action"); // A good class for exit/cancel buttons
-
-    let app_clone = app.clone();
-    let window_clone = window.clone();
-    exit_button.connect_clicked(move |_| {
-        // Return to the monster list view
-        ui_manager::switch_to_monster_list(&app_clone, &window_clone);
-    });
-    main_vbox.append(&exit_button);
-
     // --- Console Output Section ---
     let console_scrolled_window = ScrolledWindow::builder()
-        .height_request(150) // Fixed height for the console (changed from 75 to 150)
-        .hexpand(true) // Expand horizontally
-        .margin_bottom(12) // Margin between console and cards
+        .height_request(150)
+        .hexpand(true)
+        .margin_bottom(12)
         .build();
 
     let console_text_view = TextView::builder()
-        .editable(false) // Make it read-only
-        .wrap_mode(gtk::WrapMode::Word) // Wrap words
+        .editable(false)
+        .wrap_mode(gtk::WrapMode::Word)
         .build();
     
-    // An Rc<RefCell<TextBuffer>> to allow sharing and inner mutability of the buffer
     let console_buffer = Rc::new(RefCell::new(console_text_view.buffer()));
     console_scrolled_window.set_child(Some(&console_text_view));
     main_vbox.append(&console_scrolled_window);
 
-    // Initial message to the console
-    if let Ok(buffer) = console_buffer.try_borrow_mut() {
+    if let Ok(mut buffer) = console_buffer.try_borrow_mut() {
         buffer.insert(&mut buffer.start_iter(), "Simulation console: Last 50 lines will be displayed here.\n");
     }
 
-
     let scrolled_window = ScrolledWindow::new();
-    scrolled_window.set_vexpand(true); // Ensure scrolled window expands within its parent
-    scrolled_window.set_vexpand_set(true); // Allow explicit vertical expansion
+    scrolled_window.set_vexpand(true);
+    scrolled_window.set_vexpand_set(true);
 
     let flow_box = FlowBox::builder()
         .valign(Align::Start)
         .max_children_per_line(4)
         .min_children_per_line(1)
         .selection_mode(gtk::SelectionMode::None)
+        .row_spacing(12) // Use row_spacing and column_spacing for FlowBox
+        .column_spacing(12)
         .margin_top(12).margin_bottom(12).margin_start(12).margin_end(12)
         .build();
 
-    for combatant in combatants {
-        // Pass the console buffer to the card creation function
-        let card = create_combatant_card(&combatant, Rc::clone(&console_buffer), console_text_view.clone());
-        flow_box.insert(&card, -1);
+    let shared_state = Rc::new(RefCell::new(combatants));
+    
+    // Create the simulation state struct
+    let simulation_state = SimulationState {
+        combatants: Rc::clone(&shared_state),
+        flow_box: flow_box.clone(),
+        console_buffer: Rc::clone(&console_buffer),
+        console_text_view: console_text_view.clone(),
+    };
+
+    // Populate the FlowBox with cards from the initial combatant list
+    for combatant in shared_state.borrow().iter() {
+        let card = create_combatant_card(combatant, &simulation_state);
+        simulation_state.flow_box.insert(&card, -1);
+    }
+    
+    // --- Buttons Section ---
+    let button_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .halign(Align::Center)
+        .margin_bottom(12)
+        .build();
+
+    // Add Edit Simulation button
+    let edit_button = Button::builder()
+        .label("Edit Simulation")
+        .build();
+    edit_button.add_css_class("edit-action");
+
+    let app_clone = app.clone();
+    let window_clone_edit = window.clone();
+    let simulation_state_clone = simulation_state.clone();
+    edit_button.connect_clicked(move |_| {
+        show_edit_simulation_menu(&app_clone, &window_clone_edit, simulation_state_clone.clone());
+    });
+    button_box.append(&edit_button);
+
+    // Add Exit Simulation button
+    let exit_button = Button::builder()
+        .label("Exit Simulation")
+        .build();
+    exit_button.add_css_class("destructive-action");
+
+    let app_clone_exit = app.clone();
+    let window_clone_exit = window.clone();
+    exit_button.connect_clicked(move |_| {
+        ui_manager::switch_to_monster_list(&app_clone_exit, &window_clone_exit);
+    });
+    button_box.append(&exit_button);
+
+    main_vbox.append(&button_box);
+    scrolled_window.set_child(Some(&simulation_state.flow_box));
+    main_vbox.append(&scrolled_window);
+    window.set_content(Some(&main_vbox));
+}
+
+/// This function creates the modal window for editing an existing simulation.
+pub fn show_edit_simulation_menu(app: &AdwApplication, parent_window: &AdwWindow, simulation_state: SimulationState) {
+    let window = AdwWindow::builder()
+        .application(app)
+        .title("Edit Simulation")
+        .transient_for(parent_window)
+        .modal(true)
+        .default_width(450)
+        .default_height(500)
+        .build();
+
+    let main_vbox = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
+        .build();
+
+    let title = Label::builder()
+        .label("Edit Combatants")
+        .halign(Align::Center)
+        .build();
+    title.add_css_class("title-3");
+    main_vbox.append(&title);
+
+    let scrolled_window = ScrolledWindow::builder()
+        .vexpand(true)
+        .hexpand(true)
+        .build();
+    
+    let list_box = ListBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .build();
+    list_box.add_css_class("boxed-list");
+
+    let all_monsters = monster_manager::read_all_monsters();
+    let mut spin_buttons: Vec<(SpinButton, Monster)> = Vec::new();
+    let initial_counts: HashMap<String, i32> = {
+        let combatants = simulation_state.combatants.borrow();
+        let mut counts = HashMap::new();
+        for combatant in combatants.iter() {
+            *counts.entry(combatant.monster_template.name.clone()).or_insert(0) += 1;
+        }
+        counts
+    };
+
+    if all_monsters.is_empty() {
+        list_box.append(&Label::new(Some("No monsters exist. Please create one first.")));
+    } else {
+        for monster in all_monsters {
+            let row = Box::builder()
+                .orientation(Orientation::Horizontal)
+                .spacing(6)
+                .margin_top(6).margin_bottom(6).margin_start(6).margin_end(6)
+                .build();
+            
+            let name_label = Label::builder()
+                .label(&monster.name)
+                .halign(Align::Start)
+                .hexpand(true)
+                .build();
+            
+            let initial_value = *initial_counts.get(&monster.name).unwrap_or(&0) as f64;
+            let adj = Adjustment::new(initial_value, 0.0, 100.0, 1.0, 5.0, 0.0);
+            let spin_button = SpinButton::builder()
+                .adjustment(&adj)
+                .numeric(true)
+                .build();
+            
+            row.append(&name_label);
+            row.append(&spin_button);
+            list_box.append(&row);
+            spin_buttons.push((spin_button, monster));
+        }
     }
 
-    scrolled_window.set_child(Some(&flow_box));
+    scrolled_window.set_child(Some(&list_box));
     main_vbox.append(&scrolled_window);
 
+    let start_button = Button::builder()
+        .label("Update Simulation")
+        .halign(Align::End)
+        .build();
+    start_button.add_css_class("suggested-action");
+    main_vbox.append(&start_button);
+
+    let window_clone = window.clone();
+    start_button.connect_clicked(move |_| {
+        let mut selected_monsters: Vec<(Monster, i32)> = Vec::new();
+        for (spin_button, monster) in &spin_buttons {
+            let count = spin_button.value() as i32;
+            if count > 0 {
+                selected_monsters.push((monster.clone(), count));
+            }
+        }
+        window_clone.close();
+        update_simulation_view(&selected_monsters, &simulation_state);
+    });
 
     window.set_content(Some(&main_vbox));
+    window.present();
+}
+
+/// Updates the simulation view with a new set of monsters, preserving existing combatant state.
+fn update_simulation_view(selected_monsters: &Vec<(Monster, i32)>, simulation_state: &SimulationState) {
+    let mut current_combatants = simulation_state.combatants.borrow_mut();
+    let mut new_combatant_list: Vec<Combatant> = Vec::new();
+    
+    // Create a new HashMap to track how many instances of each monster type we've kept.
+    let mut kept_counts: HashMap<String, i32> = HashMap::new();
+
+    // Iterate through the new list of desired monsters
+    for (monster_template, desired_count) in selected_monsters {
+        let mut added_count = 0;
+        
+        // First, add all existing, living combatants of this monster type.
+        for existing_combatant in current_combatants.iter() {
+            if existing_combatant.monster_template.name == monster_template.name {
+                // Ensure we don't add more than the desired count
+                if added_count < *desired_count {
+                    new_combatant_list.push(existing_combatant.clone());
+                    added_count += 1;
+                }
+            }
+        }
+        
+        // Then, add any new combatants needed to reach the desired count.
+        while added_count < *desired_count {
+            let current_count = kept_counts.entry(monster_template.name.clone()).or_insert(0);
+            *current_count += 1;
+            
+            let instance_name = format!("{} {}", monster_template.name, *current_count);
+            
+            new_combatant_list.push(Combatant {
+                instance_name,
+                current_hp: monster_template.hp,
+                monster_template: monster_template.clone(),
+            });
+            added_count += 1;
+        }
+    }
+    
+    // Update the shared state with the new list of combatants.
+    *current_combatants = new_combatant_list;
+    
+    // Clear and rebuild the UI
+    // Use first_child and remove to safely clear all widgets from the FlowBox.
+    while let Some(child) = simulation_state.flow_box.first_child() {
+        simulation_state.flow_box.remove(&child);
+    }
+
+    // Now, repopulate the FlowBox with the updated list.
+    for combatant in current_combatants.iter() {
+        let card = create_combatant_card(combatant, simulation_state);
+        simulation_state.flow_box.insert(&card, -1);
+    }
 }
 
 /// Helper function to calculate damage rolls and format the output.
@@ -280,7 +477,7 @@ fn calculate_damage(num_dice: i32, dice_used: &str, ability_mod: i32) -> (i32, S
 
 
 /// Helper function to create a single monster card for the simulation view.
-fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextBuffer>>, console_text_view: TextView) -> Frame {
+fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationState) -> Frame {
     let card_frame = Frame::builder()
         .label(&combatant.instance_name)
         .margin_top(6).margin_bottom(6).margin_start(6).margin_end(6)
@@ -292,6 +489,43 @@ fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextB
         .margin_top(6).margin_bottom(6).margin_start(6).margin_end(6)
         .build();
 
+    // --- Header with name and Kill button ---
+    let header_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .build();
+    
+    let name_label = Label::builder()
+        .label(&combatant.instance_name)
+        .halign(Align::Start)
+        .hexpand(true)
+        .build();
+    name_label.add_css_class("title-4");
+
+    let kill_button = Button::builder()
+        .label("Kill")
+        .halign(Align::End)
+        .build();
+    kill_button.add_css_class("destructive-action");
+    
+    // Add the kill button functionality
+    let card_frame_clone = card_frame.clone();
+    let combatants_clone = Rc::clone(&simulation_state.combatants);
+    let combatant_instance_name = combatant.instance_name.clone();
+    let flow_box_clone = simulation_state.flow_box.clone();
+    kill_button.connect_clicked(move |_| {
+        // Find and remove the combatant from the shared state
+        if let Ok(mut combatants) = combatants_clone.try_borrow_mut() {
+            combatants.retain(|c| c.instance_name != combatant_instance_name);
+        }
+        // Remove the card from the UI
+        flow_box_clone.remove(&card_frame_clone);
+    });
+
+    header_box.append(&name_label);
+    header_box.append(&kill_button);
+    vbox.append(&header_box);
+
     // --- HP and AC Box ---
     let stats_box = Box::builder()
         .orientation(Orientation::Horizontal)
@@ -299,11 +533,22 @@ fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextB
         .build();
     
     let hp_label = Label::new(Some("HP:"));
-    let hp_adj = Adjustment::new(combatant.monster_template.hp as f64, 0.0, 9999.0, 1.0, 10.0, 0.0);
+    let hp_adj = Adjustment::new(combatant.current_hp as f64, 0.0, 9999.0, 1.0, 10.0, 0.0);
     let hp_spin_button = SpinButton::builder()
         .adjustment(&hp_adj)
         .numeric(true)
         .build();
+
+    // Update the combatant's HP in the shared state when the spin button value changes
+    let combatants_clone = Rc::clone(&simulation_state.combatants);
+    let combatant_instance_name_clone = combatant.instance_name.clone();
+    hp_spin_button.connect_value_changed(move |btn| {
+        if let Ok(mut combatants) = combatants_clone.try_borrow_mut() {
+            if let Some(c) = combatants.iter_mut().find(|c| c.instance_name == combatant_instance_name_clone) {
+                c.current_hp = btn.value() as i32;
+            }
+        }
+    });
     
     let ac_label = Label::new(Some(&format!("AC: {}", combatant.monster_template.ac)));
 
@@ -350,15 +595,15 @@ fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextB
             // Clone necessary variables for the closure
             let combatant_clone = combatant.clone();
             let attack_clone = attack.clone();
-            let console_buffer_clone = Rc::clone(&console_buffer);
-            let console_text_view_clone = console_text_view.clone();
+            let console_buffer_clone = Rc::clone(&simulation_state.console_buffer);
+            let console_text_view_clone = simulation_state.console_text_view.clone();
 
             use_button.connect_clicked(move |_| {
                 let creature_name = combatant_clone.instance_name.clone();
                 let attack_name = attack_clone.attack_name.clone();
                 let attacks_per_turn = attack_clone.num_attacks;
 
-                if let Ok(buffer) = console_buffer_clone.try_borrow_mut() {
+                if let Ok(mut buffer) = console_buffer_clone.try_borrow_mut() {
                     let mut iter = buffer.end_iter();
                     
                     buffer.insert(&mut iter, &format!("{}: {} started an attack using {} {} times.\n",
@@ -375,9 +620,12 @@ fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextB
                             "int" => combatant_clone.monster_template.int_mod,
                             "wis" => combatant_clone.monster_template.wis_mod,
                             "cha" => combatant_clone.monster_template.cha_mod,
-                            _ => 0, // Should not happen if dropdown is constrained
+                            _ => 0,
                         };
                         let to_hit = d20_roll + ability_mod + combatant_clone.monster_template.pb;
+
+                        // Check for a natural 20
+                        let crit_message = if d20_roll == 20 { " -> CRITICAL HIT!" } else { "" };
 
                         // Calculate Damage using the new helper function
                         let (total_damage, damage_output) = calculate_damage(
@@ -386,22 +634,25 @@ fn create_combatant_card(combatant: &Combatant, console_buffer: Rc<RefCell<TextB
                             ability_mod,
                         );
 
-                        buffer.insert(&mut iter, &format!("  Attack {}: To hit: {}; Damage: {}\n", i + 1, to_hit, damage_output));
+                        buffer.insert(&mut iter, &format!("  Attack {}: To hit: {} + {} (Total Mod) = {}{}; Damage: {}\n", 
+                            i + 1, d20_roll, ability_mod + combatant_clone.monster_template.pb, to_hit, crit_message, damage_output));
                     }
                     
-                    // Limit to last 50 lines
-                    let mut full_text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false).to_string();
-                    let lines: Vec<&str> = full_text.lines().collect();
-                    if lines.len() > 50 {
-                        let start_index = lines.len() - 50;
-                        let trimmed_text = lines[start_index..].join("\n");
-                        buffer.set_text(&trimmed_text);
+                    // --- Updated console limiting logic ---
+                    let line_count = buffer.line_count();
+                    if line_count > 50 {
+                        let lines_to_remove = line_count - 50;
+                        let mut start_iter = buffer.start_iter();
+                        start_iter.forward_lines(lines_to_remove);
+                        buffer.delete(&mut buffer.start_iter(), &mut start_iter);
                     }
+                }
 
-                    // Scroll to the end
-                    let end_iter = buffer.end_iter();
-                    let mark = buffer.create_mark(Some("end_mark"), &end_iter, false);
-                    console_text_view_clone.scroll_to_mark(&mark, 0.0, false, 0.0, 0.0);
+                // --- Scroll to the end ---
+                // Safely get the adjustment from the text view
+                if let Some(adj) = console_text_view_clone.vadjustment() {
+                    // Scroll to the end of the text view
+                    adj.set_value(adj.upper());
                 }
             });
             attack_hbox.append(&use_button);

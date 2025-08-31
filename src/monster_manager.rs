@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::fs; // Import fs for file system operations
-
+use std::io::{self, Write};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize,Clone)]
 pub struct Monster {
@@ -154,4 +155,44 @@ pub fn add_attack_to_monster(monster_name: &str, new_attack: Attack) -> Result<(
 
     println!("Attack added to '{}' and file updated successfully.", monster_name);
     Ok(())
+}
+
+pub fn delete_attack_from_monster(monster_name: &str, attack_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let dir_path = get_monsters_dir_path();
+    let file_name = format!("{}.json", monster_name);
+    let file_path = dir_path.join(&file_name);
+
+    if !file_path.exists() {
+        return Err(format!("Monster file not found: {:?}", file_path).into());
+    }
+
+    // Read the existing monster data
+    let json_string = fs::read_to_string(&file_path)?;
+    let mut monster: Monster = serde_json::from_str(&json_string)?;
+
+    // Find and remove the attack
+    let original_len = monster.attacks.len();
+    monster.attacks.retain(|a| a.attack_name != attack_name);
+
+    if monster.attacks.len() < original_len {
+        // Serialize the updated monster data
+        let updated_json_string = serde_json::to_string_pretty(&monster)?;
+
+        // Write the updated data back to the file
+        fs::write(&file_path, updated_json_string)?;
+
+        println!("Attack '{}' deleted from '{}' and file updated successfully.", attack_name, monster_name);
+        Ok(())
+    } else {
+        Err(format!("Attack '{}' not found for monster '{}'.", attack_name, monster_name).into())
+    }
+}
+
+pub fn read_monster(name: &str) -> Option<Monster> {
+    let dir_path = get_monsters_dir_path();
+    let file_path = dir_path.join(format!("{}.json", name));
+    
+    fs::read_to_string(&file_path)
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok())
 }
