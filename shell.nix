@@ -16,7 +16,6 @@ pkgs.mkShell {
     # Also add the dev packages for other buildInputs
     gtk4.dev
     xorg.libX11.dev
-
   ];
 
   # Libraries needed to run gtk-rs applications.

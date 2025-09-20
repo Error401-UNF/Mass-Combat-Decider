@@ -4,8 +4,8 @@ use gtk::{prelude::*, Adjustment, Align, Box, Button, FlowBox, Frame, Label, Lis
 use libadwaita::{Application as AdwApplication, Window as AdwWindow};
 use libadwaita::prelude::AdwWindowExt;
 use std::collections::HashMap;
-use std::rc::Rc; // For shared ownership
-use std::cell::RefCell; // For interior mutability
+use std::rc::Rc; 
+use std::cell::RefCell;
 use rand::Rng;
 use chrono; 
 
@@ -15,15 +15,16 @@ use super::ui_manager; // Import ui_manager to switch back to monster list
 /// A struct to hold the data for each individual combatant instance.
 #[derive(Clone)]
 struct Combatant {
-    instance_name: String, // e.g., "Goblin 1"
-    monster_template: Monster, // The base monster data
+    instance_name: String,
+    monster_template: Monster,
     current_hp: i32,
 }
 
 /// A struct to hold the shared state of the simulation.
 #[derive(Clone)]
-struct SimulationState {
+pub struct SimulationState {
     combatants: Rc<RefCell<Vec<Combatant>>>,
+    killed_monsters: Rc<RefCell<Vec<Combatant>>>,
     flow_box: FlowBox,
     console_buffer: Rc<RefCell<TextBuffer>>,
     console_text_view: TextView,
@@ -154,7 +155,7 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
             let current_count = name_counts.entry(monster.name.clone()).or_insert(0);
             *current_count += 1;
             
-            let instance_name = if count > 1 || *current_count > 1 {
+            let instance_name = if count > 1 {
                 format!("{} {}", monster.name, current_count)
             } else {
                 monster.name.clone()
@@ -228,6 +229,7 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
     // Create the simulation state struct
     let simulation_state = SimulationState {
         combatants: Rc::clone(&shared_state),
+        killed_monsters: Rc::new(RefCell::new(Vec::new())),
         flow_box: flow_box.clone(),
         console_buffer: Rc::clone(&console_buffer),
         console_text_view: console_text_view.clone(),
@@ -246,6 +248,19 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
         .halign(Align::Center)
         .margin_bottom(12)
         .build();
+    
+    // Add "See Killed" button
+    let killed_button = Button::builder()
+        .label("See Killed")
+        .build();
+    killed_button.add_css_class("see-killed-action");
+    let app_clone = app.clone();
+    let window_clone_killed = window.clone();
+    let simulation_state_clone = simulation_state.clone();
+    killed_button.connect_clicked(move |_| {
+        show_killed_monsters_menu(&app_clone, &window_clone_killed, simulation_state_clone.clone());
+    });
+    button_box.append(&killed_button);
 
     // Add Edit Simulation button
     let edit_button = Button::builder()
@@ -280,7 +295,95 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
     window.set_content(Some(&main_vbox));
 }
 
-/// This function creates the modal window for editing an existing simulation.
+/// This function creates and shows the modal for killed monsters.
+fn show_killed_monsters_menu(app: &AdwApplication, parent_window: &AdwWindow, simulation_state: SimulationState) {
+    let window = AdwWindow::builder()
+        .application(app)
+        .title("Killed Monsters")
+        .transient_for(parent_window)
+        .modal(true)
+        .default_width(450)
+        .default_height(500)
+        .build();
+
+    let main_vbox = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
+        .build();
+
+    let title = Label::builder()
+        .label("Killed Monsters and Total XP")
+        .halign(Align::Center)
+        .build();
+    title.add_css_class("title-3");
+    main_vbox.append(&title);
+
+    let scrolled_window = ScrolledWindow::builder()
+        .vexpand(true)
+        .hexpand(true)
+        .build();
+    
+    let list_box = ListBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .build();
+    list_box.add_css_class("boxed-list");
+
+    let killed_monsters = simulation_state.killed_monsters.borrow();
+    let mut total_xp = 0;
+
+    if killed_monsters.is_empty() {
+        list_box.append(&Label::new(Some("No monsters have been killed yet.")));
+    } else {
+        for combatant in killed_monsters.iter() {
+            let row = Box::builder()
+                .orientation(Orientation::Horizontal)
+                .spacing(6)
+                .margin_top(6).margin_bottom(6).margin_start(6).margin_end(6)
+                .build();
+            
+            let name_label = Label::builder()
+                .label(&format!("{} ({} XP)", combatant.instance_name, combatant.monster_template.exp))
+                .halign(Align::Start)
+                .hexpand(true)
+                .build();
+            
+            row.append(&name_label);
+            list_box.append(&row);
+            total_xp += combatant.monster_template.exp;
+        }
+    }
+
+    scrolled_window.set_child(Some(&list_box));
+    main_vbox.append(&scrolled_window);
+
+    let xp_label = Label::builder()
+        .label(&format!("Total XP: {}", total_xp))
+        .halign(Align::End)
+        .build();
+    xp_label.add_css_class("title-4");
+    xp_label.add_css_class("suggested-action");
+    main_vbox.append(&xp_label);
+
+    let close_button = Button::builder()
+        .label("Close")
+        .halign(Align::End)
+        .build();
+    close_button.add_css_class("destructive-action");
+    let window_clone = window.clone();
+    close_button.connect_clicked(move |_| {
+        window_clone.close();
+    });
+    main_vbox.append(&close_button);
+
+    window.set_content(Some(&main_vbox));
+    window.present();
+}
+
+
 pub fn show_edit_simulation_menu(app: &AdwApplication, parent_window: &AdwWindow, simulation_state: SimulationState) {
     let window = AdwWindow::builder()
         .application(app)
@@ -388,39 +491,63 @@ pub fn show_edit_simulation_menu(app: &AdwApplication, parent_window: &AdwWindow
 /// Updates the simulation view with a new set of monsters, preserving existing combatant state.
 fn update_simulation_view(selected_monsters: &Vec<(Monster, i32)>, simulation_state: &SimulationState) {
     let mut current_combatants = simulation_state.combatants.borrow_mut();
+    
+    // Create a new HashMap to group the current combatants by template name.
+    let mut existing_combatants_map: HashMap<String, Vec<Combatant>> = HashMap::new();
+    for combatant in current_combatants.drain(..) {
+        existing_combatants_map.entry(combatant.monster_template.name.clone()).or_insert(Vec::new()).push(combatant);
+    }
+
     let mut new_combatant_list: Vec<Combatant> = Vec::new();
     
-    // Create a new HashMap to track how many instances of each monster type we've kept.
-    let mut kept_counts: HashMap<String, i32> = HashMap::new();
-
-    // Iterate through the new list of desired monsters
+    // Iterate through the new list of desired monsters and rebuild the combatant list.
     for (monster_template, desired_count) in selected_monsters {
-        let mut added_count = 0;
+        let monster_name = &monster_template.name;
         
-        // First, add all existing, living combatants of this monster type.
-        for existing_combatant in current_combatants.iter() {
-            if existing_combatant.monster_template.name == monster_template.name {
-                // Ensure we don't add more than the desired count
-                if added_count < *desired_count {
-                    new_combatant_list.push(existing_combatant.clone());
-                    added_count += 1;
+        // Get the existing combatants of this type, sort them by name for predictable retention.
+        let mut existing_of_type = existing_combatants_map.remove(monster_name).unwrap_or_else(Vec::new);
+        existing_of_type.sort_by(|a, b| a.instance_name.cmp(&b.instance_name));
+
+        let num_existing = existing_of_type.len();
+        let num_needed = *desired_count as usize;
+
+        let mut existing_counter = 0;
+        let mut new_counter = 0;
+        
+        for _ in 0..num_needed {
+            // Check if we can reuse an existing combatant
+            if existing_counter < num_existing {
+                let combatant_to_keep = existing_of_type.remove(0);
+                new_combatant_list.push(combatant_to_keep);
+                existing_counter += 1;
+            } else {
+                // If not, we need to find the highest number used and create a new combatant.
+                let mut max_number = 0;
+                for existing_c in new_combatant_list.iter() {
+                    if existing_c.monster_template.name == *monster_name {
+                        if let Some(num_str) = existing_c.instance_name.split(' ').last() {
+                            if let Ok(num) = num_str.parse::<i32>() {
+                                if num > max_number {
+                                    max_number = num;
+                                }
+                            }
+                        }
+                    }
                 }
+                new_counter = max_number + 1;
+
+                let instance_name = if *desired_count > 1 {
+                    format!("{} {}", monster_name, new_counter)
+                } else {
+                    monster_name.clone()
+                };
+
+                new_combatant_list.push(Combatant {
+                    instance_name,
+                    current_hp: monster_template.hp,
+                    monster_template: monster_template.clone(),
+                });
             }
-        }
-        
-        // Then, add any new combatants needed to reach the desired count.
-        while added_count < *desired_count {
-            let current_count = kept_counts.entry(monster_template.name.clone()).or_insert(0);
-            *current_count += 1;
-            
-            let instance_name = format!("{} {}", monster_template.name, *current_count);
-            
-            new_combatant_list.push(Combatant {
-                instance_name,
-                current_hp: monster_template.hp,
-                monster_template: monster_template.clone(),
-            });
-            added_count += 1;
         }
     }
     
@@ -428,7 +555,6 @@ fn update_simulation_view(selected_monsters: &Vec<(Monster, i32)>, simulation_st
     *current_combatants = new_combatant_list;
     
     // Clear and rebuild the UI
-    // Use first_child and remove to safely clear all widgets from the FlowBox.
     while let Some(child) = simulation_state.flow_box.first_child() {
         simulation_state.flow_box.remove(&child);
     }
@@ -439,7 +565,6 @@ fn update_simulation_view(selected_monsters: &Vec<(Monster, i32)>, simulation_st
         simulation_state.flow_box.insert(&card, -1);
     }
 }
-
 /// Helper function to calculate damage rolls and format the output.
 /// Returns a tuple of (total_damage, formatted_damage_string).
 fn calculate_damage(num_dice: i32, dice_used: &str, ability_mod: i32) -> (i32, String) {
@@ -511,12 +636,18 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
     // Add the kill button functionality
     let card_frame_clone = card_frame.clone();
     let combatants_clone = Rc::clone(&simulation_state.combatants);
+    let killed_monsters_clone = Rc::clone(&simulation_state.killed_monsters);
     let combatant_instance_name = combatant.instance_name.clone();
+    let combatant_to_kill = combatant.clone();
     let flow_box_clone = simulation_state.flow_box.clone();
+
     kill_button.connect_clicked(move |_| {
         // Find and remove the combatant from the shared state
         if let Ok(mut combatants) = combatants_clone.try_borrow_mut() {
-            combatants.retain(|c| c.instance_name != combatant_instance_name);
+            if let Some(pos) = combatants.iter().position(|c| c.instance_name == combatant_instance_name) {
+                let killed = combatants.remove(pos);
+                killed_monsters_clone.borrow_mut().push(killed);
+            }
         }
         // Remove the card from the UI
         flow_box_clone.remove(&card_frame_clone);
@@ -556,6 +687,78 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
     stats_box.append(&hp_spin_button);
     stats_box.append(&ac_label);
     vbox.append(&stats_box);
+
+    // --- Saves Section ---
+    let saves_label = Label::builder()
+        .label("<b>Saves</b>")
+        .use_markup(true)
+        .halign(Align::Start)
+        .margin_top(6)
+        .build();
+    vbox.append(&saves_label);
+
+    let saves_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .build();
+    
+    let stats = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
+    for stat_name in stats.iter() {
+        let save_button = Button::builder()
+            .label(*stat_name)
+            .build();
+        
+        let combatant_clone = combatant.clone();
+        let console_buffer_clone = Rc::clone(&simulation_state.console_buffer);
+        let console_text_view_clone = simulation_state.console_text_view.clone();
+        
+        // Clone the stat_name string to move it into the closure, fixing the lifetime issue.
+        let stat_name_clone = stat_name.to_string();
+
+        save_button.connect_clicked(move |_| {
+            let mut rng = rand::rngs::ThreadRng::default();
+            let d20_roll = rng.random_range(1..=20);
+            
+            let modifier = match stat_name_clone.to_lowercase().as_str() {
+                "str" => combatant_clone.monster_template.str_mod,
+                "dex" => combatant_clone.monster_template.dex_mod,
+                "con" => combatant_clone.monster_template.con_mod,
+                "int" => combatant_clone.monster_template.int_mod,
+                "wis" => combatant_clone.monster_template.wis_mod,
+                "cha" => combatant_clone.monster_template.cha_mod,
+                _ => 0,
+            };
+            
+            let total = d20_roll + modifier;
+            
+            if let Ok(mut buffer) = console_buffer_clone.try_borrow_mut() {
+                let mut iter = buffer.end_iter();
+                let message = format!("{}: {} rolled a {} Save: {} (1d20) + {} (Mod) = {}\n",
+                    chrono::Local::now().format("%H:%M:%S"),
+                    combatant_clone.instance_name,
+                    stat_name_clone,
+                    d20_roll,
+                    modifier,
+                    total
+                );
+                buffer.insert(&mut iter, &message);
+                
+                let line_count = buffer.line_count();
+                if line_count > 50 {
+                    let lines_to_remove = line_count - 50;
+                    let mut start_iter = buffer.start_iter();
+                    start_iter.forward_lines(lines_to_remove);
+                    buffer.delete(&mut buffer.start_iter(), &mut start_iter);
+                }
+            }
+            if let Some(adj) = console_text_view_clone.vadjustment() {
+                adj.set_value(adj.upper());
+            }
+        });
+        
+        saves_box.append(&save_button);
+    }
+    vbox.append(&saves_box);
 
     // --- Attacks List ---
     if !combatant.monster_template.attacks.is_empty() {
