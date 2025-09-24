@@ -1,43 +1,45 @@
 // monster_manager.rs
-// This file is responsible for saving and loading monster data to and from JSON files.
-use serde::{Serialize, Deserialize};
-use std::fs;
+//
+// This file is responsible for all data management operations related to monsters.
+// It handles reading from and writing to the "Monsters" directory.
+
+use serde::{Deserialize, Serialize};
+use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-/// Represents a single attack for a monster.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Attack {
-    pub attack_name: String,
-    pub ability_used: String, // e.g., "str", "dex"
-    pub dice_used: String,    // e.g., "d6", "d10"
-    pub num_dice: i32,
-    pub num_attacks: i32,
-}
-
-/// Represents the data for a single monster.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+// Represents the data structure for a monster.
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Monster {
     pub name: String,
     pub hp: i32,
     pub ac: i32,
-    pub pb: i32, // Proficiency Bonus
+    pub exp: i32,
+    pub pb: i32,
     pub str_mod: i32,
     pub dex_mod: i32,
     pub con_mod: i32,
     pub int_mod: i32,
     pub wis_mod: i32,
     pub cha_mod: i32,
-    pub exp: i32, // XP value
     pub attacks: Vec<Attack>,
 }
 
-const MONSTER_DIR: &str = "monsters";
+// Represents the data structure for an attack.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Attack {
+    pub attack_name: String,
+    pub ability_used: String,
+    pub dice_used: String,
+    pub num_dice: i32,
+    pub num_attacks: i32,
+}
 
-
-pub fn check_for_monsters() -> bool{
+/// Checks if the "Monsters" directory exists.
+/// This is used to determine if a new user should be shown the welcome screen.
+pub fn check_for_monsters() -> bool {
     // Define the path to the "Monsters" directory relative to the executable
-    let mut path = std::env::current_exe().unwrap_or_else(|_| Path::new(".").to_path_buf());
+    let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
     path.pop(); // Go up one level from the executable to the target/debug or target/release directory
     path.push("Monsters"); // Append the "Monsters" directory
 
@@ -45,40 +47,67 @@ pub fn check_for_monsters() -> bool{
     path.exists()
 }
 
+/// Saves a monster to a JSON file.
 pub fn save_monster(monster: Monster) -> io::Result<()> {
-    // Ensure the monsters directory exists
-    if !Path::new(MONSTER_DIR).exists() {
-        fs::create_dir(MONSTER_DIR)?;
+    // Ensure the Monsters directory exists.
+    let mut path = get_monsters_dir_path()?;
+    if !path.exists() {
+        fs::create_dir(&path)?;
     }
 
-    let file_path = format!("{}/{}.json", MONSTER_DIR, monster.name);
-    let json = serde_json::to_string_pretty(&monster)?;
-    let mut file = fs::File::create(file_path)?;
-    file.write_all(json.as_bytes())?;
+    // Create the file path for the new monster.
+    path.push(format!("{}.json", monster.name));
+
+    let json_data = serde_json::to_string_pretty(&monster)?;
+    let mut file = File::create(&path)?;
+    file.write_all(json_data.as_bytes())?;
+
+    println!("Saved monster to file: {:?}", path);
     Ok(())
 }
 
-/// Reads a monster from a JSON file.
-pub fn read_monster(monster_name: &str) -> io::Result<Monster> {
-    let file_path = format!("{}/{}.json", MONSTER_DIR, monster_name);
-    let mut file = fs::File::open(file_path)?;
+/// Reads a monster's data from a JSON file by name.
+pub fn read_monster(monster_name: &str) -> Option<Monster> {
+    let mut path = match get_monsters_dir_path() {
+        Ok(p) => p,
+        Err(_) => return None,
+    };
+    path.push(format!("{}.json", monster_name));
+
+    let mut file = match File::open(&path) {
+        Ok(f) => f,
+        Err(_) => return None,
+    };
+
     let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let monster: Monster = serde_json::from_str(&contents)?;
-    Ok(monster)
+    if file.read_to_string(&mut contents).is_err() {
+        return None;
+    }
+
+    match serde_json::from_str(&contents) {
+        Ok(monster) => Some(monster),
+        Err(e) => {
+            eprintln!("Failed to parse monster JSON for '{}': {}", monster_name, e);
+            None
+        }
+    }
 }
 
-/// Reads all monster files from the directory and returns a vector of Monster structs.
+/// Reads all monsters from the "Monsters" directory.
 pub fn read_all_monsters() -> Vec<Monster> {
+    let path = match get_monsters_dir_path() {
+        Ok(p) => p,
+        Err(_) => return Vec::new(),
+    };
+
     let mut monsters = Vec::new();
-    if let Ok(entries) = fs::read_dir(MONSTER_DIR) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
-                    if let Ok(monster) = read_monster(&path.file_stem().unwrap().to_string_lossy()) {
-                        monsters.push(monster);
-                    }
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map_or(false, |ext| ext == "json") {
+                let monster_name = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+                if let Some(monster) = read_monster(monster_name) {
+                    monsters.push(monster);
                 }
             }
         }
@@ -88,23 +117,43 @@ pub fn read_all_monsters() -> Vec<Monster> {
 
 /// Deletes a monster's JSON file.
 pub fn delete_monster(monster_name: &str) -> io::Result<()> {
-    let file_path = format!("{}/{}.json", MONSTER_DIR, monster_name);
-    fs::remove_file(file_path)?;
+    let mut path = get_monsters_dir_path()?;
+    path.push(format!("{}.json", monster_name));
+    fs::remove_file(&path)?;
+    println!("Deleted monster file: {:?}", path);
     Ok(())
 }
 
-/// Adds an attack to an existing monster and saves the updated monster.
+/// Adds a new attack to an existing monster.
 pub fn add_attack_to_monster(monster_name: &str, new_attack: Attack) -> io::Result<()> {
-    let mut monster = read_monster(monster_name)?;
-    monster.attacks.push(new_attack);
-    save_monster(monster)?;
-    Ok(())
+    let mut monster_data = read_monster(monster_name)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Monster not found"))?;
+
+    monster_data.attacks.push(new_attack);
+
+    save_monster(monster_data)
 }
 
-/// Deletes an attack from an existing monster and saves the updated monster.
+/// Deletes an attack from a monster by name.
 pub fn delete_attack_from_monster(monster_name: &str, attack_name: &str) -> io::Result<()> {
-    let mut monster = read_monster(monster_name)?;
-    monster.attacks.retain(|attack| attack.attack_name != attack_name);
-    save_monster(monster)?;
-    Ok(())
+    let mut monster_data = read_monster(monster_name)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Monster not found"))?;
+    
+    let original_len = monster_data.attacks.len();
+    monster_data.attacks.retain(|a| a.attack_name != attack_name);
+    
+    if monster_data.attacks.len() < original_len {
+        save_monster(monster_data)?;
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::NotFound, "Attack not found"))
+    }
+}
+
+/// Helper function to get the path to the "Monsters" directory.
+fn get_monsters_dir_path() -> io::Result<PathBuf> {
+    let mut path = std::env::current_exe()?;
+    path.pop(); // Go up one level
+    path.push("Monsters");
+    Ok(path)
 }

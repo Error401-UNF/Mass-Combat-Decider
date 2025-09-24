@@ -720,7 +720,7 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
     list_box.add_css_class("boxed-list");
 
     let monster_data = monster_manager::read_monster(monster_name);
-    if let Ok(monster) = monster_data {
+    if let Some(monster) = monster_data {
         if monster.attacks.is_empty() {
             list_box.append(&Label::new(Some("This monster has no attacks to remove.")));
         } else {
