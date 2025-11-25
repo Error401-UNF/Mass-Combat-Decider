@@ -37,32 +37,42 @@ jobs:
           sudo apt-get install -y pkg-config libglib2.0-dev libpango1.0-dev libcairo2-dev libgtk-4-dev libadwaita-1-dev
 
       # ------------------
-      # Windows: Install Dependencies AND Build/Test in ONE MSYS2 Step
+      # Rust Toolchain Setup (Windows - Base `rustup` installation)
       # ------------------
-      - name: Install Dependencies & Build/Test (Windows)
+      - name: Install base Rust toolchain (Windows)
+        # This installs `rustup` and the default Rust toolchain to the standard Windows PATH.
         if: ${{ matrix.os == 'windows-latest' }}
+        uses: dtolnay/rust-toolchain@stable
+        # We don't specify the GNU target here, we'll do that in the MSYS2 step.
+
+      # ------------------
+      # Windows: Install Dependencies
+      # ------------------
+      - name: Install GTK/GLib Dependencies via MSYS2 (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        # Use msys2/setup-msys2 to install GTK/GLib development files and pkg-config.
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           install: mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita mingw-w64-x86_64-pkg-config
           path-type: minimal
-          # FIX: Consolidate Rust setup, Build, and Test into a single command set
-          # to ensure the necessary environment variables (PKG_CONFIG_PATH) are active.
-          # The entire script runs inside the persistent MSYS2 shell.
-          # We use `pacboy` here as it's often more reliable for script execution than `pacman`.
-          # We also use `rustup` inside the MSYS2 environment to get the correct toolchain.
-          # We must use `shell: msys2 {0}` for the `run` command itself to inherit the environment.
-          
-      - name: Setup Rust and Build (Windows)
+
+      # ------------------
+      # Windows: Setup GNU Target and Build/Test
+      # ------------------
+      - name: Setup GNU Target and Build (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
+        # Use the MSYS2 shell to ensure pkg-config paths are correct
         shell: msys2 {0}
         run: |
-          # 1. Install GNU Toolchain (required to link against MSYS2 libraries)
+          # 1. Add GNU target (rustup is now available)
           rustup target add x86_64-pc-windows-gnu
-          rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal --no-self-update --allow-downgrade
+
+          # 2. Set the default toolchain to the MSYS2 compatible GNU target
+          # Note: We use `rustup default` here to ensure the correct compiler is used
           rustup default stable-x86_64-pc-windows-gnu
 
-          # 2. Build the project (pkg-config and GTK are now on the PATH)
+          # 3. Build the project (pkg-config and GTK are now on the PATH)
           cargo build --release
 
       # ------------------
