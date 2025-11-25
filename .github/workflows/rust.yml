@@ -21,19 +21,19 @@ jobs:
       # Nix Setup (Only on Ubuntu)
       # ------------------
       - name: Setup Nix Environment
-        # This step only runs when the runner is Linux (for NixOS compatibility)
         if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: DeterminateSystems/nix-installer-action@main
+        
       # ------------------
       # Install System Dependencies (Linux only)
       # ------------------
       - name: Install GLib/GTK System Dependencies (Linux)
-        # FIX: Added Pango and Cairo libs needed for `pango-sys` and GTK dependencies.
+        # Required for crates like `glib-sys` and `pango-sys` on the Ubuntu runner
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
-          # Added libpango1.0-dev and libcairo2-dev
-          sudo apt-get install -y pkg-config libglib2.0-dev libpango1.0-dev libcairo2-dev
+          # Installing all necessary GTK/GNOME development headers
+          sudo apt-get install -y pkg-config libglib2.0-dev libpango1.0-dev libcairo2-dev libgtk-4-dev libadwaita-1-dev
 
       # ------------------
       # Install System Dependencies (Windows only)
@@ -43,7 +43,7 @@ jobs:
         uses: lukka/run-vcpkg@v11 
         with:
           vcpkg-root-path: ${{ runner.workspace }}/vcpkg-cache
-          vcpkgArguments: glib pango cairo gtk
+          vcpkgArguments: glib pango cairo gtk4 libadwaita
           vcpkgTriplet: x64-windows
 
       # ------------------
@@ -62,5 +62,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-release-artifacts
-          # Adjust the path if your workspace is nested
           path: target/release/*
