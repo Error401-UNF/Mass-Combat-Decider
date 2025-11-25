@@ -16,33 +16,45 @@ jobs:
 
 
     steps:
-      - name: Build
+      - name: Checkout Code
         uses: actions/checkout@v4
-    
+
+      # ------------------
+      # Nix Setup
+      # ------------------
       - name: Setup Nix Environment
+        # This step only runs when the runner is Linux (for NixOS compatibility)
         if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: DeterminateSystems/nix-installer-action@main
-
-      - name: Install GLib/GTK System Dependencies
+      # ------------------
+      # Install System Dependencies (Linux only)
+      # ------------------
+      - name: Install GLib/GTK System Dependencies (Linux)
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config libglib2.0-dev
 
+      # ------------------
+      # Install System Dependencies (Windows only)
+      # ------------------
       - name: Install GLib Dependencies via vcpkg (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
+        # This action automatically handles setting up vcpkg paths and environment variables
         uses: sergey-shandar/vcpkg-action@v1
         with:
           packages: glib
           triplet: x64-windows
 
-
+      # ------------------
+      # Rust Toolchain Setup (Required for both OSes)
+      # ------------------
       - name: Install stable Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Project (Release)
         run: cargo build --verbose --release
-        
+
       - name: Run Tests
         run: cargo test --verbose
 
@@ -50,5 +62,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-release-artifacts
-          # Adjust the path if your workspace is nested
           path: target/release/*
