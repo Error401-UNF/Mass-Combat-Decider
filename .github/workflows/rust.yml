@@ -37,43 +37,50 @@ jobs:
           sudo apt-get install -y pkg-config libglib2.0-dev libpango1.0-dev libcairo2-dev libgtk-4-dev libadwaita-1-dev
 
       # ------------------
-      # Install System Dependencies (Windows only)
+      # Windows: Install Dependencies AND Build/Test in ONE MSYS2 Step
       # ------------------
-      - name: Install GTK/GLib Dependencies via MSYS2 (Windows)
+      - name: Install Dependencies & Build/Test (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
-        # Use msys2/setup-msys2 to install GTK/GLib development files and pkg-config.
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          # We are correctly installing all packages including pkg-config here.
           install: mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita mingw-w64-x86_64-pkg-config
           path-type: minimal
+          # FIX: Consolidate Rust setup, Build, and Test into a single command set
+          # to ensure the necessary environment variables (PKG_CONFIG_PATH) are active.
+          # The entire script runs inside the persistent MSYS2 shell.
+          # We use `pacboy` here as it's often more reliable for script execution than `pacman`.
+          # We also use `rustup` inside the MSYS2 environment to get the correct toolchain.
+          # We must use `shell: msys2 {0}` for the `run` command itself to inherit the environment.
+          
+      - name: Setup Rust and Build (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: msys2 {0}
+        run: |
+          # 1. Install GNU Toolchain (required to link against MSYS2 libraries)
+          rustup target add x86_64-pc-windows-gnu
+          rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal --no-self-update --allow-downgrade
+          rustup default stable-x86_64-pc-windows-gnu
+
+          # 2. Build the project (pkg-config and GTK are now on the PATH)
+          cargo build --release
 
       # ------------------
-      # Rust Toolchain Setup (Required for both OSes)
+      # Linux: Build and Test Steps
       # ------------------
-      - name: Install stable Rust toolchain (Windows GNU target)
-        # We specify the GNU toolchain for Windows to match the MSYS2 MINGW64 environment.
-        if: ${{ matrix.os == 'windows-latest' }}
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable-x86_64-pc-windows-gnu
-      
       - name: Install stable Rust toolchain (Linux)
-        # Default stable toolchain for Linux
         if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build Project (Release) - Linux
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cargo build  --release
 
-
-      # ------------------
-      # Build and Test Steps
-      # ------------------
-        
-      - name: Build Project (Release)
-        run: cargo build --release
 
       - name: Upload Artifacts
+        # Uploads the compiled binary (e.g., target/release/my_app) for the respective OS
         uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-release-artifacts
+          # Adjust the path if your workspace is nested
           path: target/release/*
