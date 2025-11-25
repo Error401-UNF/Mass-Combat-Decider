@@ -40,10 +40,9 @@ jobs:
       # Rust Toolchain Setup (Windows - Base `rustup` installation)
       # ------------------
       - name: Install base Rust toolchain (Windows)
-        # This installs `rustup` and the default Rust toolchain to the standard Windows PATH.
+        # This installs `rustup` and the default Rust toolchain (MSVC) + GNU components.
         if: ${{ matrix.os == 'windows-latest' }}
         uses: dtolnay/rust-toolchain@stable
-        # We don't specify the GNU target here, we'll do that in the MSYS2 step.
 
       # ------------------
       # Windows: Install Dependencies
@@ -58,22 +57,16 @@ jobs:
           path-type: minimal
 
       # ------------------
-      # Windows: Setup GNU Target and Build/Test
+      # Windows: Build/Test
       # ------------------
-      - name: Setup GNU Target and Build (Windows)
+      - name: Build Project (Release) - Windows (MSYS2 Shell)
         if: ${{ matrix.os == 'windows-latest' }}
         # Use the MSYS2 shell to ensure pkg-config paths are correct
         shell: msys2 {0}
         run: |
-          # 1. Add GNU target (rustup is now available)
-          rustup target add x86_64-pc-windows-gnu
-
-          # 2. Set the default toolchain to the MSYS2 compatible GNU target
-          # Note: We use `rustup default` here to ensure the correct compiler is used
-          rustup default stable-x86_64-pc-windows-gnu
-
-          # 3. Build the project (pkg-config and GTK are now on the PATH)
-          cargo build --release
+          # The GNU toolchain components are already installed by the previous `dtolnay/rust-toolchain` step.
+          # We explicitly specify the GNU target to link against MSYS2 libraries.
+          cargo build --verbose --release --target x86_64-pc-windows-gnu
 
       # ------------------
       # Linux: Build and Test Steps
