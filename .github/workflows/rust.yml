@@ -41,7 +41,7 @@ jobs:
       - name: Install GLib Dependencies via vcpkg (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
         # This action automatically handles setting up vcpkg paths and environment variables
-        uses: sergey-shandar/vcpkg-action@v1
+        uses: lukka/run-vcpkg@v11 
         with:
           packages: glib
           triplet: x64-windows
