@@ -11,16 +11,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-      
     runs-on: ${{ matrix.os }}
-
-
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       # ------------------
-      # Nix Setup
+      # Nix Setup (Only on Ubuntu)
       # ------------------
       - name: Setup Nix Environment
         # This step only runs when the runner is Linux (for NixOS compatibility)
@@ -30,21 +28,23 @@ jobs:
       # Install System Dependencies (Linux only)
       # ------------------
       - name: Install GLib/GTK System Dependencies (Linux)
+        # FIX: Added Pango and Cairo libs needed for `pango-sys` and GTK dependencies.
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libglib2.0-dev
+          # Added libpango1.0-dev and libcairo2-dev
+          sudo apt-get install -y pkg-config libglib2.0-dev libpango1.0-dev libcairo2-dev
 
       # ------------------
       # Install System Dependencies (Windows only)
       # ------------------
       - name: Install GLib Dependencies via vcpkg (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
-        # This action automatically handles setting up vcpkg paths and environment variables
         uses: lukka/run-vcpkg@v11 
         with:
-          packages: glib
-          triplet: x64-windows
+          vcpkg-root-path: ${{ runner.workspace }}/vcpkg-cache
+          vcpkgArguments: glib pango cairo gtk
+          vcpkgTriplet: x64-windows
 
       # ------------------
       # Rust Toolchain Setup (Required for both OSes)
@@ -62,4 +62,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-release-artifacts
+          # Adjust the path if your workspace is nested
           path: target/release/*
