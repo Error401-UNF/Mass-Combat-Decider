@@ -45,22 +45,30 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          # FIX: Change 'pacman' input to 'install' for MSYS2 action v2 compatibility
+          # We are correctly installing all packages including pkg-config here.
           install: mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita mingw-w64-x86_64-pkg-config
           path-type: minimal
-      
+
       # ------------------
       # Rust Toolchain Setup (Required for both OSes)
       # ------------------
-      - name: Install stable Rust toolchain (Windows specific target)
+      - name: Install stable Rust toolchain (Windows GNU target)
         # We specify the GNU toolchain for Windows to match the MSYS2 MINGW64 environment.
         if: ${{ matrix.os == 'windows-latest' }}
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-gnu
       
       - name: Install stable Rust toolchain (Linux)
+        # Default stable toolchain for Linux
         if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: dtolnay/rust-toolchain@stable
 
+
+      # ------------------
+      # Build and Test Steps
+      # ------------------
+        
       - name: Build Project (Release)
         run: cargo build --release
 
