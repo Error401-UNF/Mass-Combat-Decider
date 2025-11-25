@@ -38,13 +38,14 @@ jobs:
       # ------------------
       # Install System Dependencies (Windows only)
       # ------------------
-      - name: Install GLib Dependencies via vcpkg (Windows)
+      - name: Install GTK/GLib Dependencies via MSYS2 (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
-        uses: lukka/run-vcpkg@v11 
+        # New FIX: Use msys2/setup-msys2 to install GTK/GLib development files and pkg-config.
+        uses: msys2/setup-msys2@v2
         with:
-          vcpkg-root-path: ${{ runner.workspace }}/vcpkg-cache
-          vcpkgArguments: glib pango cairo gtk4 libadwaita
-          vcpkgTriplet: x64-windows
+          msystem: MINGW64
+          pacman: mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita
+
 
       # ------------------
       # Rust Toolchain Setup (Required for both OSes)
