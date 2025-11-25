@@ -21,6 +21,7 @@ jobs:
       # Nix Setup (Only on Ubuntu)
       # ------------------
       - name: Setup Nix Environment
+        # This step only runs when the runner is Linux (for NixOS compatibility)
         if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: DeterminateSystems/nix-installer-action@main
         
@@ -28,14 +29,13 @@ jobs:
       # Install System Dependencies (Linux only)
       # ------------------
       - name: Install GLib/GTK System Dependencies (Linux)
-        # Required for crates like `glib-sys` and `pango-sys` on the Ubuntu runner
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
           # Installing all necessary GTK/GNOME development headers
           sudo apt-get install -y pkg-config libglib2.0-dev libpango1.0-dev libcairo2-dev libgtk-4-dev libadwaita-1-dev
 
-       # ------------------
+      # ------------------
       # Install System Dependencies (Windows only)
       # ------------------
       - name: Install GTK/GLib Dependencies via MSYS2 (Windows)
@@ -46,6 +46,17 @@ jobs:
           msystem: MINGW64
           pacman: mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita mingw-w64-x86_64-pkg-config
           path-type: minimal
+
+      # NEW FIX: Explicitly set PKG_CONFIG_PATH for the Rust build process
+      - name: Set PKG_CONFIG Environment Variables (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: |
+          # The MSYS2 action stores its environment variables for later steps.
+          echo "PATH=$((ls -d C:\msys64\mingw64\bin))":$PATH | Out-File -FilePath $env:GITHUB_ENV -Encoding UTF8 -Append
+          # Additionally, set PKG_CONFIG_LIBDIR to help it find the .pc files for the installed libraries
+          $pkgconfig_libdir = Join-Path -Path "C:\msys64\mingw64\lib" -ChildPath "pkgconfig"
+          echo "PKG_CONFIG_LIBDIR=$pkgconfig_libdir" | Out-File -FilePath $env:GITHUB_ENV -Encoding UTF8 -Append
+        shell: pwsh # Use PowerShell for path manipulation on Windows
 
       # ------------------
       # Rust Toolchain Setup (Required for both OSes)
@@ -58,7 +69,6 @@ jobs:
           toolchain: stable-x86_64-pc-windows-gnu
       
       - name: Install stable Rust toolchain (Linux)
-        # Default stable toolchain for Linux
         if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: dtolnay/rust-toolchain@stable
 
