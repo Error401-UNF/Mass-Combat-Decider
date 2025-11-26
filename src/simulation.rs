@@ -512,7 +512,7 @@ fn update_simulation_view(selected_monsters: &Vec<(Monster, i32)>, simulation_st
         let num_needed = *desired_count as usize;
 
         let mut existing_counter = 0;
-        let mut new_counter = 0;
+        let mut _new_counter = 0;
         
         for _ in 0..num_needed {
             // Check if we can reuse an existing combatant
@@ -534,10 +534,10 @@ fn update_simulation_view(selected_monsters: &Vec<(Monster, i32)>, simulation_st
                         }
                     }
                 }
-                new_counter = max_number + 1;
+                _new_counter = max_number + 1;
 
                 let instance_name = if *desired_count > 1 {
-                    format!("{} {}", monster_name, new_counter)
+                    format!("{} {}", monster_name, _new_counter)
                 } else {
                     monster_name.clone()
                 };
@@ -638,7 +638,7 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
     let combatants_clone = Rc::clone(&simulation_state.combatants);
     let killed_monsters_clone = Rc::clone(&simulation_state.killed_monsters);
     let combatant_instance_name = combatant.instance_name.clone();
-    let combatant_to_kill = combatant.clone();
+    let _combatant_to_kill = combatant.clone();
     let flow_box_clone = simulation_state.flow_box.clone();
 
     kill_button.connect_clicked(move |_| {
@@ -831,7 +831,7 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
                         let crit_message = if d20_roll == 20 { " -> CRITICAL HIT!" } else { "" };
 
                         // Calculate Damage using the new helper function
-                        let (total_damage, damage_output) = calculate_damage(
+                        let (_total_damage, damage_output) = calculate_damage(
                             attack_clone.num_dice,
                             &attack_clone.dice_used,
                             ability_mod,
