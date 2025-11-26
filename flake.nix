@@ -11,8 +11,10 @@
     # System Definitions
     # ---------------------------------------------------------
     linuxSystem = "x86_64-linux";
-    # Target platform for MinGW cross-compilation, required by GitHub Action
+    # Target system KEY required by GitHub Action for output attribute
     windowsSystem = "x86_64-pc-windows-gnu"; 
+    # GCC Triplet KEY required for internal pkgsCross lookup
+    windowsGccTriplet = "x86_64-w64-mingw32"; 
 
     # ---------------------------------------------------------
     # Package Sets
@@ -22,21 +24,20 @@
     pkgsLinuxNative = nixpkgs.legacyPackages.${linuxSystem};
 
     # 1b. Configured Host Pkgs (Linux set with overrides for cross-compilation)
-    # We create a new Linux package set here to apply the overrides (broken/unsupported).
-    # This prevents the configuration leakage error ('ipc_rmid_deferred_release') 
-    # that happens when the flags are mixed with 'crossSystem' in a single import.
+    # This set will serve as the base for cross-compilation packages.
     pkgsLinuxConfigured = import nixpkgs {
       system = linuxSystem;
       config = {
+        # Allow packages marked as "unsupported" (like libxkbcommon)
         allowUnsupportedSystem = true;
+        # Allow packages marked as "broken" (like Python3)
         allowBroken = true;
       };
     };
 
     # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
-    # We use the built-in 'pkgsCross' mechanism from the configured host set. This 
-    # method ensures a much cleaner evaluation environment for the Windows target.
-    pkgsCrossWindows = pkgsLinuxConfigured.pkgsCross.${windowsSystem};
+    # FIX: Use the actual GCC triplet for the 'pkgsCross' lookup to prevent the 'attribute missing' error.
+    pkgsCrossWindows = pkgsLinuxConfigured.pkgsCross.${windowsGccTriplet};
 
     # ---------------------------------------------------------
     # Build Logic (Reusable)

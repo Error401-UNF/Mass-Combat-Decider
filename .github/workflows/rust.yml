@@ -27,6 +27,24 @@ jobs:
         run: |
           mkdir -p ~/.config/nix
           echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+      
+      # ------------------
+      # 3. Cross-Compile for Windows (MinGW Target)
+      # ------------------
+      - name: Cross-Compile Windows Binary (x86_64-pc-windows-gnu)
+        # Uses 'nix build' targeting the explicit cross-compiled package definition in flake.nix
+        run: |
+          echo "Cross-compiling Windows executable..."
+          nix build .#packages.x86_64-pc-windows-gnu.default --out-link result-windows
+          
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-x86_64-release
+          # The result is symlinked by the previous command
+          path: result-windows/bin/*.exe
+
+
 
       # ------------------
       # 2. Build for Linux (Native Target)
@@ -44,18 +62,4 @@ jobs:
           # The result is symlinked by the previous command
           path: result-linux/bin/*
 
-      # ------------------
-      # 3. Cross-Compile for Windows (MinGW Target)
-      # ------------------
-      - name: Cross-Compile Windows Binary (x86_64-pc-windows-gnu)
-        # Uses 'nix build' targeting the explicit cross-compiled package definition in flake.nix
-        run: |
-          echo "Cross-compiling Windows executable..."
-          nix build .#packages.x86_64-pc-windows-gnu.default --out-link result-windows
-          
-      - name: Upload Windows Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Windows-x86_64-release
-          # The result is symlinked by the previous command
-          path: result-windows/bin/*.exe
+      
