@@ -8,6 +8,7 @@ env:
 
 jobs:
   build:
+    # We only need one runner (Ubuntu) because Nix will handle the cross-compilation.
     runs-on: ubuntu-latest
     
     steps:
@@ -21,61 +22,40 @@ jobs:
         # This action automatically installs Nix and configures the environment for flakes.
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Enable Experimental Features for Cross-Compilation
-        # Cross-compilation often requires the `flakes` and `nix-command` features.
+      - name: Enable Experimental Features for Flakes
+        # Only need to enable features needed for building flakes
         run: |
           mkdir -p ~/.config/nix
           echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-          # Allow untrusted paths for the build process
-          echo "build-users-group = nixbld" >> ~/.config/nix/nix.conf
 
       # ------------------
       # 2. Build for Linux (Native Target)
       # ------------------
       - name: Build Linux Binary (Native)
-        # Uses 'nix build' to execute the build within the environment defined by your flake.
-        # The `--file` flag points to your flake and the `devShells` environment.
+        # Uses 'nix build' to execute the build using the native package definition in flake.nix
         run: |
           echo "Building Linux executable..."
-          nix develop --command cargo build --release --target x86_64-unknown-linux-gnu
+          nix build .#packages.x86_64-linux.default --out-link result-linux
         
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Linux-x86_64-release
-          # Assumes your crate name is 'minimal' based on Cargo.toml, adjust if necessary.
-          path: target/x86_64-unknown-linux-gnu/release/*
+          # The result is symlinked by the previous command
+          path: result-linux/bin/*
 
       # ------------------
       # 3. Cross-Compile for Windows (MinGW Target)
       # ------------------
       - name: Cross-Compile Windows Binary (x86_64-pc-windows-gnu)
-        # Nixpkgs provides a pre-configured cross-compilation toolchain for Windows (MinGW).
-        # We use a separate shell to set up the necessary environment variables for the cross-linker.
-        # This step uses the `default.nix` pattern to define the cross-compilation environment.
+        # Uses 'nix build' targeting the explicit cross-compiled package definition in flake.nix
         run: |
-          echo "Setting up cross-compilation for Windows..."
+          echo "Cross-compiling Windows executable..."
+          nix build .#packages.x86_64-pc-windows-gnu.default --out-link result-windows
           
-          # Use Nix to provide the correct cross-toolchain and libraries (GTK/GLib for MinGW)
-          # Note: This requires a Nix expression (or derivation) that pulls the MinGW version 
-          # of the dependencies. Since we don't have a specific cross-compilation derivation 
-          # in your flake yet, we use a manual approach here that should work for most projects:
-          
-          # First, install the Rust GNU target
-          rustup target add x86_64-pc-windows-gnu || true
-
-          # Then, use Nix to provide the necessary cross-linker and dependencies.
-          # We use a temporary shell to set up the cross-compilation environment.
-          nix-shell -p mingwW64.pkg-config mingwW64.gtk4 mingwW64.libadwaita --run "
-            export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${MINGW_PREFIX}/lib/pkgconfig
-            export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER='${MINGW_PREFIX}/bin/x86_64-w64-mingw32-gcc'
-            
-            # Now build the Windows target inside the cross-compilation shell
-            cargo build --release --target x86_64-pc-windows-gnu
-          "
-
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Windows-x86_64-release
-          path: target/x86_64-pc-windows-gnu/release/*.exe
+          # The result is symlinked by the previous command
+          path: result-windows/bin/*.exe
