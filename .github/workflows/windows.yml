@@ -44,7 +44,7 @@ jobs:
     # 3. Build the application
     - name: Build GTK-RS Application
       # Set CARGO_TARGET_DIR to force the build output to a known, root-level folder.
-      run: CARGO_TARGET_DIR=build_output cargo build --release
+      run: cargo build --release
       # Ensure this command runs inside the MINGW64 shell context.
       shell: msys2 {0}
 
@@ -53,6 +53,6 @@ jobs:
       with:
         name: windows-app-exe
         # FIX: Updated path to use the new CARGO_TARGET_DIR location.
-        path: build_output/x86_64-pc-windows-gnu/release/*
+        path: Mass-Combat-Decider/*
         retention-days: 7
 
