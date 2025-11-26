@@ -50,32 +50,17 @@ jobs:
       # 3. Cross-Compile for Windows (MinGW Target)
       # ------------------
       - name: Cross-Compile Windows Binary (x86_64-pc-windows-gnu)
-        # Nixpkgs provides a pre-configured cross-compilation toolchain for Windows (MinGW).
-        # We use a separate shell to set up the necessary environment variables for the cross-linker.
-        # This step uses the `default.nix` pattern to define the cross-compilation environment.
+        # Uses 'nix build' targeting the explicit cross-compiled package definition in flake.nix
         run: |
-          echo "Setting up cross-compilation for Windows..."
+          echo "Cross-compiling Windows executable..."
+          nix build .#packages.x86_64-pc-windows-gnu.default --out-link result-windows
           
-          # Use Nix to provide the correct cross-toolchain and libraries (GTK/GLib for MinGW)
-          # Note: This requires a Nix expression (or derivation) that pulls the MinGW version 
-          # of the dependencies. Since we don't have a specific cross-compilation derivation 
-          # in your flake yet, we use a manual approach here that should work for most projects:
-          
-          # First, install the Rust GNU target
-          rustup target add x86_64-pc-windows-gnu || true
-
-          # Then, use Nix to provide the necessary cross-linker and dependencies.
-          # We use a temporary shell to set up the cross-compilation environment.
-          nix-shell -p mingwW64.pkg-config mingwW64.gtk4 mingwW64.libadwaita --run "
-            export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${MINGW_PREFIX}/lib/pkgconfig
-            export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER='${MINGW_PREFIX}/bin/x86_64-w64-mingw32-gcc'
-            
-            # Now build the Windows target inside the cross-compilation shell
-            cargo build --release --target x86_64-pc-windows-gnu
-          "
-
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
+        with:
+          name: Windows-x86_64-release
+          # The result is symlinked by the previous command
+          path: result-windows/bin/*.exe
         with:
           name: Windows-x86_64-release
           path: target/x86_64-pc-windows-gnu/release/*.exe
