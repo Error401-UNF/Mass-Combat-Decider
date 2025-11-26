@@ -1,0 +1,61 @@
+name: Windows
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    # We only need one runner (Ubuntu) because Nix will handle the cross-compilation.
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 1. Setup MSYS2 environment. This step configures the shell environment.
+    - name: Setup MSYS2 Environment
+      uses: msys2/setup-msys2@v2
+      with:
+        # Use the MinGW 64-bit subsystem
+        msystem: MINGW64 
+        # This ensures the MSYS2 environment is fully initialized.
+        update: true 
+
+    # 2. Install Dependencies (Using the MSYS2 environment shell)
+    - name: Install GTK4 Dependencies
+      # The default shell for the runner is used, but the MSYS2 action sets up the PATH correctly.
+      run: |
+        pacman -Syu --noconfirm
+        pacman -S --noconfirm \
+          mingw-w64-x86_64-toolchain \
+          mingw-w64-x86_64-pkg-config \
+          mingw-w64-x86_64-gtk4 \
+          mingw-w64-x86_64-libadwaita \
+          mingw-w64-x86_64-glib2 \
+          mingw-w64-x86_64-gobject-introspection \
+          git \
+          make
+      # We specify the MINGW64 shell to ensure pacman commands execute correctly.
+      shell: msys2 {0}
+
+    # 3. Add Rust MinGW Target
+    - name: Add Rust MinGW Target
+      run: rustup target add x86_64-pc-windows-gnu
+
+    # 4. Build the application
+    - name: Build GTK-RS Application
+      # This uses the MINGW64 environment (which includes pkg-config, GTK4, etc.)
+      run: cargo build --release
+      # Ensure this command runs inside the MINGW64 shell context.
+      shell: msys2 {0}
+
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-app-exe
+        # The executable path inside the MSYS2 build environment
+        path: target/x86_64-pc-windows-gnu/release/gtk-app.exe
+        retention-days: 7

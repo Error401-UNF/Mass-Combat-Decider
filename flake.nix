@@ -1,9 +1,8 @@
 {
-  description = "Nix Flake for GTK-RS Development Environment";
+  description = "Nix Flake for GTK-RS Development Environment (Linux Native Only)";
 
   inputs = {
-    # FIX: Switching to the 'nixpkgs' default branch (unstable) to leverage the 
-    # latest cross-compilation fixes and avoid persistent configuration leakage errors.
+    # Using nixpkgs-unstable for the latest fixes
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
@@ -13,56 +12,18 @@
     # System Definitions
     # ---------------------------------------------------------
     linuxSystem = "x86_64-linux";
-    # Target system KEY required by GitHub Action for output attribute
-    windowsSystem = "x86_64-pc-windows-gnu"; 
-    # GCC Triplet KEY for cross-compilation target
-    windowsGccTriplet = "x86_64-w64-mingw32"; # The official triplet recognized by MinGW/Autotools
-
+    
     # ---------------------------------------------------------
     # Package Sets
     # ---------------------------------------------------------
     
-    # 1. Native Linux Pkgs (Clean version for devShell and native build)
-    pkgsLinuxNative = nixpkgs.legacyPackages.${linuxSystem};
-    # Access to Nixpkgs library helpers
-    lib = pkgsLinuxNative.lib;
-
-    # Define the crossSystem structure using Nixpkgs' helper for robustness
-    myCrossSystem = lib.systems.elaborate {
-        system = windowsGccTriplet; # x86_64-w64-mingw32
-        isMinGW = true; # Explicitly mark as MinGW
-    };
-
-    # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
-    pkgsCrossWindows = import nixpkgs {
-      system = linuxSystem; # The machine that runs the build (GitHub Runner/Local Machine)
-      crossSystem = myCrossSystem; # The target machine architecture (Windows MinGW)
-      
-      config = {
-        allowUnsupportedSystem = true;
-        allowBroken = true;
-      };
-      
-      # FIX: Use 'overrides' to explicitly manage the Autotools scripts for core MinGW packages.
-      overrides = final: prev: {
-        # FIX: Force the recognized MinGW triplet in the configure flags to bypass the 'Invalid configuration' error.
-        mingw_w64-headers = prev.mingw_w64-headers.overrideAttrs (old: {
-          configureFlags = (old.configureFlags or []) ++ [ "--host=${windowsGccTriplet}" ];
-          # Removing previous attempt: preConfigure = (old.preConfigure or "") + "export build_config=no;";
-        });
-        
-        # FIX: Force the recognized MinGW triplet for binutils as well.
-        binutils = prev.binutils.overrideAttrs (old: {
-          configureFlags = (old.configureFlags or []) ++ [ "--host=${windowsGccTriplet}" ];
-          # Removing previous attempt: preConfigure = (old.preConfigure or "") + "export build_config=no;";
-        });
-      };
-    };
+    # Native Linux Pkgs (The only package set we are using now)
+    pkgs = nixpkgs.legacyPackages.${linuxSystem};
 
     # ---------------------------------------------------------
-    # Build Logic (Reusable)
+    # Build Logic (The final application package)
     # ---------------------------------------------------------
-    mkApp = pkgs: pkgs.rustPlatform.buildRustPackage {
+    appPackage = pkgs.rustPlatform.buildRustPackage {
       pname = "gtk-app"; 
       version = "0.1.0";
       
@@ -75,53 +36,39 @@
       };
 
       # Native Build Inputs (Tools needed at build time, run on HOST: Linux)
-      # pkgs will be pkgsLinuxNative for Linux build, and pkgsCrossWindows for Windows build.
       nativeBuildInputs = with pkgs; [
         pkg-config
-      ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-        # wrapGAppsHook4 is strictly for Linux to help find schemas/icons
-        wrapGAppsHook4
+        wrapGAppsHook4 # For finding GTK schemas/icons on Linux
       ];
 
-      # Build Inputs (Libraries linked into the binary, for TARGET: Windows or Linux)
+      # Build Inputs (Libraries linked into the binary, for TARGET: Linux)
       buildInputs = with pkgs; [
         gtk4
         libadwaita
         glib
-      ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-        # X11 is usually only needed for Linux targets
         xorg.libX11
       ];
       
-      # Disable tests during cross-compilation because we can't run Windows exes on Linux
-      doCheck = if pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform then false else true;
+      # Enable checks since we are running natively
+      doCheck = true;
     };
 
   in
   {
     # ---------------------------------------------------------
-    # Outputs: Packages (Used by GitHub Actions)
+    # Outputs: Packages
     # ---------------------------------------------------------
     
-    # 1. Linux Output
-    packages.${linuxSystem} = {
-      default = mkApp pkgsLinuxNative;
-    };
-
-    # 2. Windows Output (Cross Compiled)
-    # The workflow requests: .#packages.x86_64-pc-windows-gnu.default
-    packages.${windowsSystem} = {
-      # The target system is x86_64-pc-windows-gnu
-      default = mkApp pkgsCrossWindows;
-    };
+    # Linux Output (The default package)
+    packages.${linuxSystem}.default = appPackage;
 
     # ---------------------------------------------------------
-    # Outputs: DevShell (Preserved from your original file)
+    # Outputs: DevShell
     # ---------------------------------------------------------
-    devShells.${linuxSystem}.default = pkgsLinuxNative.mkShell { # Use the clean native package set
+    devShells.${linuxSystem}.default = pkgs.mkShell {
       name = "gtk-rs-development-environment";
 
-      nativeBuildInputs = with pkgsLinuxNative; [
+      nativeBuildInputs = with pkgs; [
         pkg-config
         gcc
         rustc
@@ -134,7 +81,7 @@
         xorg.libX11.dev
       ];
 
-      buildInputs = with pkgsLinuxNative; [
+      buildInputs = with pkgs; [
         gtk4
         libadwaita
         xorg.libX11
