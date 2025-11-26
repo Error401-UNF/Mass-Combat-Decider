@@ -4,22 +4,18 @@
   inputs = {
     # Stick to the stable NixOS channel for dependencies like GTK
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    # Use the unstable channel specifically for the latest Rust toolchain setup
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+    
+    # *** FIX: Use rust-overlay for reliable nightly toolchain access ***
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    # Ensure rust-overlay uses the same stable channel for consistency
+    rust-overlay.inputs.nixpkgs.follows = "nixpkgs"; 
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, ... }:
+  outputs = { self, nixpkgs, rust-overlay, ... }:
   let
     # Define the native system architecture (Linux build)
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
-    
-    # Import unstable Nixpkgs to access the latest version of rust-bin
-    unstablePkgs = import nixpkgs-unstable { 
-      inherit system;
-      # *** FIX: Must allow unfree packages here to access rust-bin ***
-      config = { allowUnfree = true; }; 
-    };
 
     # Define the cross-compilation system (Windows build)
     crossSystem = {
@@ -27,35 +23,38 @@
       host = system;
     };
 
-    # --- Nightly Rust Setup: Fix 'rust-bin' Missing Error ---
-    # We define an overlay using unstablePkgs to explicitly pull the pre-compiled nightly toolchain 
-    rustNightlyOverlay = final: prev: {
-      # Use the unstable rust-bin from the unstable pkgs set
-      # The `rust-bin` package is structured reliably in the unstable channel.
-      rust = (unstablePkgs.rust-bin.unstable.latest.minimal.override {
-        # Ensure the nightly toolchain is compiled with the Windows target enabled
-        targets = [ crossSystem.system ];
-      });
-      # Set the rustPlatform to use the nightly toolchain's platform
-      rustPlatform = final.rust.rustPlatform;
-    };
-    
-    # Import nixpkgs with the nightly toolchain applied via the overlay
-    nightlyPkgs = import nixpkgs {
+    # --- Nightly Rust Setup using rust-overlay ---
+    # 1. Get the toolchain overlay
+    rustToolchainOverlay = rust-overlay.overlays.default;
+
+    # 2. Apply the overlay to the stable pkgs set
+    rustPkgs = import nixpkgs {
       inherit system;
-      overlays = [ rustNightlyOverlay ];
-      # The allowUnfree here is redundant but harmless, keeping it for clarity.
-      config = { allowUnfree = true; };
+      overlays = [ rustToolchainOverlay ];
+      config = {
+        allowUnfree = true; # Required for pre-compiled rust toolchains
+      };
     };
+
+    # 3. Get the nightly toolchain package from the new pkgs set
+    # .fromRustupToolchain is the reliable way to specify a specific channel like nightly
+    nightlyRust = rustPkgs.rustToolchain.fromRustupToolchain {
+      toolchain = "nightly";
+      # Include the cross-compilation target when defining the toolchain
+      targets = [ crossSystem.system ];
+    };
+
+    # The rustPlatform we will use for building
+    nightlyRustPlatform = nightlyRust.rustPlatform;
 
     # The toolchain for the devShell
-    nightlyToolchain = nightlyPkgs.rust;
-
+    nightlyToolchain = nightlyRust;
+    
 
     # Function to create the GTK Rust derivation for a specific system (native or cross)
     mkGtkRsDerivation = { targetSystem, systemPkgs, platformMeta }:
-      # IMPORTANT: Use the rustPlatform from the NIGHTLY package set
-      nightlyPkgs.rustPlatform.buildRustPackage {
+      # IMPORTANT: Use the rustPlatform from the NIGHTLY toolchain
+      nightlyRustPlatform.buildRustPackage {
         pname = "minimal-gtk-app";
         version = self.rev or "dirty";
 
