@@ -2,7 +2,9 @@
   description = "Nix Flake for GTK-RS Development Environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    # FIX: Switching to the 'nixpkgs' default branch (unstable) to leverage the 
+    # latest cross-compilation fixes and avoid persistent configuration leakage errors.
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   outputs = { self, nixpkgs, ... }:
@@ -22,21 +24,26 @@
     
     # 1. Native Linux Pkgs (Clean version for devShell and native build)
     pkgsLinuxNative = nixpkgs.legacyPackages.${linuxSystem};
+    # Access to Nixpkgs library helpers
+    lib = pkgsLinuxNative.lib;
+
+    # Define the crossSystem structure using Nixpkgs' helper for robustness
+    myCrossSystem = lib.systems.elaborate {
+        system = windowsGccTriplet; # x86_64-w64-mingw32
+        isMinGW = true; # Explicitly mark as MinGW
+    };
 
     # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
-    # FIX: Isolate the cross-compilation import to prevent configuration leakage and 
-    # solve the 'attribute missing' error, which occurs because MinGW isn't in 
-    # the default pkgsCross list for this channel.
     pkgsCrossWindows = import nixpkgs {
-      system = linuxSystem; # The machine that runs the build (GitHub Runner)
-      crossSystem = {
-        config = windowsGccTriplet; # The target machine architecture (Windows MinGW)
-      };
+      system = linuxSystem; # The machine that runs the build (GitHub Runner/Local Machine)
+      crossSystem = myCrossSystem; # The target machine architecture (Windows MinGW)
+      
+      # FIX: Reintroducing the 'allowUnsupportedSystem' flag to permit dependencies
+      # like libxkbcommon, which are needed by GTK but not officially marked for Windows.
       config = {
-        # Allow packages marked as "unsupported" (like libxkbcommon)
         allowUnsupportedSystem = true;
-        # Allow packages marked as "broken" (like Python3)
-        allowBroken = true;
+        # Keeping this off for now, but if you hit a "broken" error again, we'll re-add:
+        allowBroken = true; 
       };
     };
 
