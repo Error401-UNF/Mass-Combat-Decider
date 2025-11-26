@@ -62,7 +62,8 @@
         
         # REQUIRED FOR NIX RUST BUILDS
         # You must replace this with the actual hash printed by Nix on the first run!
-        cargoHash = "";
+        # The build will fail here on the first run, printing the hash needed for the next attempt.
+        cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Placeholder for the first run
 
         # Add the GTK/Adwaita dependencies needed for building
         buildInputs = with systemPkgs; [
