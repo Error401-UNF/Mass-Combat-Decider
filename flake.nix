@@ -12,33 +12,37 @@
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
 
-    # --- Nightly Rust Setup ---
-    # We fetch the nightly version of rustPlatform from the stable channel's rust-nightly package set
-    nightlyPkgs = import nixpkgs {
-      inherit system;
-      config = {
-        # Use the nightly toolchain for the rustPlatform functions
-        allowUnfree = true;
-        packageOverrides = pkgs: {
-          rust = pkgs.rust-bin.fromRustc {
-            version = "nightly";
-            sha256 = "0000000000000000000000000000000000000000000000000000"; # Placeholder
-          };
-        };
-      };
-    };
-    
-    # We will use the `rustc` and `cargo` from the nightly package set for the devShell
-    nightlyToolchain = nightlyPkgs.rust-bin.fromRustc {
-      version = "nightly";
-      sha256 = "0000000000000000000000000000000000000000000000000000"; # Placeholder
-    };
-
     # Define the cross-compilation system (Windows build)
     crossSystem = {
       system = "x86_64-pc-windows-gnu";
       host = system;
     };
+
+    # --- Nightly Rust Setup: Fix 'rust-bin' Missing Error ---
+    # We define an overlay to explicitly pull the pre-compiled nightly toolchain 
+    # and use it for the rustPlatform attribute. This resolves the scoping issue.
+    rustNightlyOverlay = final: prev: {
+      # Use the unstable rust-bin to get the nightly toolchain (required for edition 2024)
+      rust = (final.rust-bin.unstable.latest.minimal.override {
+        # Ensure the nightly toolchain is compiled with the Windows target enabled
+        targets = [ crossSystem.system ];
+      });
+      # Set the rustPlatform to use the nightly toolchain's platform
+      rustPlatform = final.rust.rustPlatform;
+    };
+    
+    # Import nixpkgs with the nightly toolchain applied via the overlay
+    nightlyPkgs = import nixpkgs {
+      inherit system;
+      overlays = [ rustNightlyOverlay ];
+      config = {
+        allowUnfree = true;
+      };
+    };
+
+    # The toolchain for the devShell
+    nightlyToolchain = nightlyPkgs.rust;
+
 
     # Function to create the GTK Rust derivation for a specific system (native or cross)
     mkGtkRsDerivation = { targetSystem, systemPkgs, platformMeta }:
@@ -149,5 +153,5 @@
       default = windowsPackage;
       minimal-gtk-app = windowsPackage;
     };
-  };
+  }
 }
