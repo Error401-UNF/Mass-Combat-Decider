@@ -41,21 +41,18 @@ jobs:
       # We specify the MINGW64 shell to ensure pacman commands execute correctly.
       shell: msys2 {0}
 
-    # REMOVED: Step 3 (Add Rust MinGW Target) is no longer needed since Rust is installed via pacman.
-
     # 3. Build the application
     - name: Build GTK-RS Application
-      # 'cargo' should now be found since it was installed in the MSYS2 path via pacman.
-      run: cargo build --release
-      # Ensure this command runs inside the MINGW64 shell context to pick up GTK4 environment variables.
+      # Set CARGO_TARGET_DIR to force the build output to a known, root-level folder.
+      run: CARGO_TARGET_DIR=build_output cargo build --release
+      # Ensure this command runs inside the MINGW64 shell context.
       shell: msys2 {0}
 
     - name: Upload Windows Artifact
       uses: actions/upload-artifact@v4
       with:
         name: windows-app-exe
-        # FIX: Adjusted the path to account for the nested project directory.
-        # Assuming the crate root is at 'Mass-Combat-Decider/' relative to the repository root.
-        path: Mass-Combat-Decider/target/x86_64-pc-windows-gnu/release/gtk-app.exe
+        # FIX: Updated path to use the new CARGO_TARGET_DIR location.
+        path: build_output/x86_64-pc-windows-gnu/release/gtk-app.exe
         retention-days: 7
 
