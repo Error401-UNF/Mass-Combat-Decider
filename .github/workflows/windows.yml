@@ -36,7 +36,6 @@ jobs:
           mingw-w64-x86_64-glib2 \
           mingw-w64-x86_64-gobject-introspection \
           mingw-w64-x86_64-rust \
-          mingw-w64-x86_64-cargo-c \
           git \
           make
       # We specify the MINGW64 shell to ensure pacman commands execute correctly.
