@@ -15,7 +15,11 @@
     pkgs = import nixpkgs { inherit system; };
     
     # Import unstable Nixpkgs to access the latest version of rust-bin
-    unstablePkgs = import nixpkgs-unstable { inherit system; };
+    unstablePkgs = import nixpkgs-unstable { 
+      inherit system;
+      # *** FIX: Must allow unfree packages here to access rust-bin ***
+      config = { allowUnfree = true; }; 
+    };
 
     # Define the cross-compilation system (Windows build)
     crossSystem = {
@@ -40,9 +44,8 @@
     nightlyPkgs = import nixpkgs {
       inherit system;
       overlays = [ rustNightlyOverlay ];
-      config = {
-        allowUnfree = true;
-      };
+      # The allowUnfree here is redundant but harmless, keeping it for clarity.
+      config = { allowUnfree = true; };
     };
 
     # The toolchain for the devShell
