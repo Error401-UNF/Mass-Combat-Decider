@@ -54,6 +54,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: windows-app-exe
-        # The executable path inside the MSYS2 build environment
-        path: target/x86_64-pc-windows-gnu/release/gtk-app.exe
+        # FIX: Adjusted the path to account for the nested project directory.
+        # Assuming the crate root is at 'Mass-Combat-Decider/' relative to the repository root.
+        path: Mass-Combat-Decider/target/x86_64-pc-windows-gnu/release/gtk-app.exe
         retention-days: 7
+
