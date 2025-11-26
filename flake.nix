@@ -11,32 +11,32 @@
     # System Definitions
     # ---------------------------------------------------------
     linuxSystem = "x86_64-linux";
-    # The workflow specifically asks for this system key for Windows
-    windowsSystem = "x86_64-pc-windows-gnu";
+    # Target platform for MinGW cross-compilation, required by GitHub Action
+    windowsSystem = "x86_64-pc-windows-gnu"; 
 
     # ---------------------------------------------------------
     # Package Sets
     # ---------------------------------------------------------
     
-    # 1. Native Linux Pkgs (For devShell and Linux build)
-    pkgsLinux = nixpkgs.legacyPackages.${linuxSystem};
+    # 1a. Native Linux Pkgs (Clean version for devShell and native build)
+    pkgsLinuxNative = nixpkgs.legacyPackages.${linuxSystem};
 
-    # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
-    # We configure this to build ON Linux (system) FOR Windows (crossSystem)
-    pkgsCrossWindows = import nixpkgs {
+    # 1b. Configured Host Pkgs (Linux set with overrides for cross-compilation)
+    # We create a new Linux package set here to apply the overrides (broken/unsupported).
+    # This prevents the configuration leakage error ('ipc_rmid_deferred_release') 
+    # that happens when the flags are mixed with 'crossSystem' in a single import.
+    pkgsLinuxConfigured = import nixpkgs {
       system = linuxSystem;
-      crossSystem = {
-        config = "x86_64-w64-mingw32";
-      };
       config = {
-        # FIX 1: Allow packages marked as "not for Windows" (libxkbcommon) to attempt building anyway.
         allowUnsupportedSystem = true;
-        
-        # FIX 2: Allow packages marked as "broken" (like Python3, often used by GTK dependencies) 
-        # to be used during the cross-compilation process.
         allowBroken = true;
       };
     };
+
+    # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
+    # We use the built-in 'pkgsCross' mechanism from the configured host set. This 
+    # method ensures a much cleaner evaluation environment for the Windows target.
+    pkgsCrossWindows = pkgsLinuxConfigured.pkgsCross.${windowsSystem};
 
     # ---------------------------------------------------------
     # Build Logic (Reusable)
@@ -53,7 +53,7 @@
         lockFile = ./Cargo.lock;
       };
 
-      # Native Build Inputs (Tools needed at build time)
+      # Native Build Inputs (Tools needed at build time, run on HOST: Linux)
       nativeBuildInputs = with pkgs; [
         pkg-config
       ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
@@ -61,7 +61,7 @@
         wrapGAppsHook4
       ];
 
-      # Build Inputs (Libraries linked into the binary)
+      # Build Inputs (Libraries linked into the binary, for TARGET: Windows or Linux)
       buildInputs = with pkgs; [
         gtk4
         libadwaita
@@ -83,7 +83,7 @@
     
     # 1. Linux Output
     packages.${linuxSystem} = {
-      default = mkApp pkgsLinux;
+      default = mkApp pkgsLinuxNative;
     };
 
     # 2. Windows Output (Cross Compiled)
@@ -95,10 +95,10 @@
     # ---------------------------------------------------------
     # Outputs: DevShell (Preserved from your original file)
     # ---------------------------------------------------------
-    devShells.${linuxSystem}.default = pkgsLinux.mkShell {
+    devShells.${linuxSystem}.default = pkgsLinuxNative.mkShell { # Use the clean native package set
       name = "gtk-rs-development-environment";
 
-      nativeBuildInputs = with pkgsLinux; [
+      nativeBuildInputs = with pkgsLinuxNative; [
         pkg-config
         gcc
         rustc
@@ -111,7 +111,7 @@
         xorg.libX11.dev
       ];
 
-      buildInputs = with pkgsLinux; [
+      buildInputs = with pkgsLinuxNative; [
         gtk4
         libadwaita
         xorg.libX11
