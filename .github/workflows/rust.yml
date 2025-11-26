@@ -61,6 +61,3 @@ jobs:
           name: Windows-x86_64-release
           # The result is symlinked by the previous command
           path: result-windows/bin/*.exe
-        with:
-          name: Windows-x86_64-release
-          path: target/x86_64-pc-windows-gnu/release/*.exe
