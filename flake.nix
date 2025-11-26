@@ -4,13 +4,18 @@
   inputs = {
     # Stick to the stable NixOS channel for dependencies like GTK
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    # Use the unstable channel specifically for the latest Rust toolchain setup
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, ... }:
   let
     # Define the native system architecture (Linux build)
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
+    
+    # Import unstable Nixpkgs to access the latest version of rust-bin
+    unstablePkgs = import nixpkgs-unstable { inherit system; };
 
     # Define the cross-compilation system (Windows build)
     crossSystem = {
@@ -19,11 +24,11 @@
     };
 
     # --- Nightly Rust Setup: Fix 'rust-bin' Missing Error ---
-    # We define an overlay to explicitly pull the pre-compiled nightly toolchain 
-    # and use it for the rustPlatform attribute. This resolves the scoping issue.
+    # We define an overlay using unstablePkgs to explicitly pull the pre-compiled nightly toolchain 
     rustNightlyOverlay = final: prev: {
-      # Use the unstable rust-bin to get the nightly toolchain (required for edition 2024)
-      rust = (final.rust-bin.unstable.latest.minimal.override {
+      # Use the unstable rust-bin from the unstable pkgs set
+      # The `rust-bin` package is structured reliably in the unstable channel.
+      rust = (unstablePkgs.rust-bin.unstable.latest.minimal.override {
         # Ensure the nightly toolchain is compiled with the Windows target enabled
         targets = [ crossSystem.system ];
       });
@@ -153,5 +158,5 @@
       default = windowsPackage;
       minimal-gtk-app = windowsPackage;
     };
-  }
+  };
 }
