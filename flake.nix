@@ -7,26 +7,95 @@
 
   outputs = { self, nixpkgs, ... }:
   let
-    # Define the system architecture
-    system = "x86_64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
-  in
-  {
-    # Defines the development shell environment
-    devShells.${system}.default = pkgs.mkShell {
-      name = "gtk-rs-development-environment";
+    # ---------------------------------------------------------
+    # System Definitions
+    # ---------------------------------------------------------
+    linuxSystem = "x86_64-linux";
+    # The workflow specifically asks for this system key for Windows
+    windowsSystem = "x86_64-pc-windows-gnu";
 
-      # Tools/Compilers needed for the build process (added rust-analyzer for IDE support)
+    # ---------------------------------------------------------
+    # Package Sets
+    # ---------------------------------------------------------
+    
+    # 1. Native Linux Pkgs (For devShell and Linux build)
+    pkgsLinux = nixpkgs.legacyPackages.${linuxSystem};
+
+    # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
+    # We configure this to build ON Linux (system) FOR Windows (crossSystem)
+    pkgsCrossWindows = import nixpkgs {
+      system = linuxSystem;
+      crossSystem = {
+        config = "x86_64-w64-mingw32";
+      };
+    };
+
+    # ---------------------------------------------------------
+    # Build Logic (Reusable)
+    # ---------------------------------------------------------
+    mkApp = pkgs: pkgs.rustPlatform.buildRustPackage {
+      pname = "gtk-app"; 
+      version = "0.1.0";
+      
+      # Use the current directory as source
+      src = ./.;
+
+      # Nix requires the Cargo.lock to build rust packages deterministically
+      cargoLock = {
+        lockFile = ./Cargo.lock;
+      };
+
+      # Native Build Inputs (Tools needed at build time)
       nativeBuildInputs = with pkgs; [
         pkg-config
-        gcc
+      ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+        # wrapGAppsHook4 is strictly for Linux to help find schemas/icons
+        wrapGAppsHook4
+      ];
 
-        # Declarative Rust toolchain (Replaces rustup/cargo from your original shell)
+      # Build Inputs (Libraries linked into the binary)
+      buildInputs = with pkgs; [
+        gtk4
+        libadwaita
+        glib
+      ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+        # X11 is usually only needed for Linux targets
+        xorg.libX11
+      ];
+      
+      # Disable tests during cross-compilation because we can't run Windows exes on Linux
+      doCheck = if pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform then false else true;
+    };
+
+  in
+  {
+    # ---------------------------------------------------------
+    # Outputs: Packages (Used by GitHub Actions)
+    # ---------------------------------------------------------
+    
+    # 1. Linux Output
+    packages.${linuxSystem} = {
+      default = mkApp pkgsLinux;
+    };
+
+    # 2. Windows Output (Cross Compiled)
+    # The workflow requests: .#packages.x86_64-pc-windows-gnu.default
+    packages.${windowsSystem} = {
+      default = mkApp pkgsCrossWindows;
+    };
+
+    # ---------------------------------------------------------
+    # Outputs: DevShell (Preserved from your original file)
+    # ---------------------------------------------------------
+    devShells.${linuxSystem}.default = pkgsLinux.mkShell {
+      name = "gtk-rs-development-environment";
+
+      nativeBuildInputs = with pkgsLinux; [
+        pkg-config
+        gcc
         rustc
         cargo
         rust-analyzer
-
-        # Dependencies for GTK-RS/GNOME development
         gobject-introspection
         libadwaita.dev
         glib.dev
@@ -34,17 +103,14 @@
         xorg.libX11.dev
       ];
 
-      # Libraries needed to run the resulting application
-      buildInputs = with pkgs; [
+      buildInputs = with pkgsLinux; [
         gtk4
         libadwaita
         xorg.libX11
       ];
 
-      # Setting TMPDIR as requested
       TMPDIR = "/tmp";
 
-      # Environment setup hook
       shellHook = ''
         export RUST_BACKTRACE=1
         echo "--------------------------------------------------------"
