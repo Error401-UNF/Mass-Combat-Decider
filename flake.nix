@@ -1,7 +1,8 @@
 {
-  description = "Nix Flake for GTK-RS Development Environment";
+  description = "Nix Flake for GTK-RS Development Environment (Nightly)";
 
   inputs = {
+    # Stick to the stable NixOS channel for dependencies like GTK
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
   };
 
@@ -9,33 +10,51 @@
   let
     # Define the native system architecture (Linux build)
     system = "x86_64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
+    pkgs = import nixpkgs { inherit system; };
+
+    # --- Nightly Rust Setup ---
+    # We fetch the nightly version of rustPlatform from the stable channel's rust-nightly package set
+    nightlyPkgs = import nixpkgs {
+      inherit system;
+      config = {
+        # Use the nightly toolchain for the rustPlatform functions
+        allowUnfree = true;
+        packageOverrides = pkgs: {
+          rust = pkgs.rust-bin.fromRustc {
+            version = "nightly";
+            sha256 = "0000000000000000000000000000000000000000000000000000"; # Placeholder
+          };
+        };
+      };
+    };
+    
+    # We will use the `rustc` and `cargo` from the nightly package set for the devShell
+    nightlyToolchain = nightlyPkgs.rust-bin.fromRustc {
+      version = "nightly";
+      sha256 = "0000000000000000000000000000000000000000000000000000"; # Placeholder
+    };
 
     # Define the cross-compilation system (Windows build)
     crossSystem = {
-      # Target for MinGW (Windows)
       system = "x86_64-pc-windows-gnu";
-      # The host system where the cross-compiler runs
       host = system;
     };
 
     # Function to create the GTK Rust derivation for a specific system (native or cross)
     mkGtkRsDerivation = { targetSystem, systemPkgs, platformMeta }:
-      # Use `rustPlatform.buildRustPackage` for reliable Rust compilation
-      systemPkgs.rustPlatform.buildRustPackage {
+      # IMPORTANT: Use the rustPlatform from the NIGHTLY package set
+      nightlyPkgs.rustPlatform.buildRustPackage {
         pname = "minimal-gtk-app";
         version = self.rev or "dirty";
 
-        # The source code is the current directory
         src = self;
         
-        # REQUIRED FOR NIX RUST BUILDS: Needs a hash of the Cargo.lock dependencies
-        # Use an empty string hash for the first build. Nix will tell you the correct hash to use.
+        # REQUIRED FOR NIX RUST BUILDS
+        # You must replace this with the actual hash printed by Nix on the first run!
         cargoHash = "";
 
         # Add the GTK/Adwaita dependencies needed for building
         buildInputs = with systemPkgs; [
-          # GTK/GLib dependencies (will pull MinGW versions when cross-compiling)
           gtk4
           libadwaita
         ];
@@ -43,7 +62,6 @@
         # Add `pkg-config` and C compiler for linking
         nativeBuildInputs = with systemPkgs; [
           pkg-config
-          # The appropriate cross-compiler (gcc) will be automatically selected by Nixpkgs
           systemPkgs.stdenv.cc
         ];
 
@@ -52,19 +70,12 @@
           "--target" targetSystem
         ];
 
-        # Set the target triplet explicitly for the linker
         RUST_TARGET = targetSystem;
 
-        # Standard checks and hardening
-        checkPhase = ''
-          # Optional: Run tests for the target (usually disabled for cross-compilation)
-          # cargo test --target $RUST_TARGET
-        '';
+        checkPhase = "skip";
 
-        # Standard check for all derivations
         meta = {
           description = "Cross-compiled GTK application";
-          # Use the platformMeta passed to the function
           platforms = platformMeta;
         };
       };
@@ -73,70 +84,62 @@
     nativePackage = mkGtkRsDerivation {
       targetSystem = system;
       systemPkgs = pkgs;
-      platformMeta = pkgs.lib.platforms.all; # Use all for native build
+      platformMeta = pkgs.lib.platforms.all;
     };
 
     # Cross-Compiled (Windows) Package
     crossPkgs = import nixpkgs {
       inherit crossSystem;
-      # We still use the native system as the host for the build tools
       localSystem = { inherit system; };
-      config = { }; # Standard config
+      config = { };
     };
 
     windowsPackage = mkGtkRsDerivation {
       targetSystem = crossSystem.system;
       systemPkgs = crossPkgs;
-      # Explicitly use Nixpkgs windows platforms list for the cross-compiled target
       platformMeta = pkgs.lib.platforms.windows; 
     };
 
 
   in
   {
-    # Defines the development shell environment (Only for native development on Linux)
+    # Defines the development shell environment
     devShells.${system}.default = pkgs.mkShell {
       name = "gtk-rs-development-environment";
 
-      # Tools/Compilers needed for the build process (added rust-analyzer for IDE support)
       nativeBuildInputs = with pkgs; [
         pkg-config
         gcc
-
-        # Declarative Rust toolchain (Replaces rustup/cargo from your original shell)
-        rustc
-        cargo
         rust-analyzer
-
-        # Dependencies for GTK-RS/GNOME development
-        gobject-introspection
-        libadwaita.dev
-        glib.dev
-        gtk4.dev
-        xorg.libX11.dev
+      ];
+      
+      # Use the nightly tools for the shell itself
+      buildInputs = [
+        nightlyToolchain.rustc
+        nightlyToolchain.cargo
+        # Standard GTK dependencies
+        pkgs.gtk4
+        pkgs.libadwaita
+        pkgs.xorg.libX11
+        # Dev dependencies
+        pkgs.gobject-introspection
+        pkgs.libadwaita.dev
+        pkgs.glib.dev
+        pkgs.gtk4.dev
+        pkgs.xorg.libX11.dev
       ];
 
-      # Libraries needed to run the resulting application
-      buildInputs = with pkgs; [
-        gtk4
-        libadwaita
-        xorg.libX11
-      ];
-
-      # Setting TMPDIR as requested
       TMPDIR = "/tmp";
 
-      # Environment setup hook
       shellHook = ''
         export RUST_BACKTRACE=1
         echo "--------------------------------------------------------"
-        echo "GTK-RS development environment ready (Flake-based)!"
-        echo "Use 'cargo build' or 'nix build' to build the native Linux app."
+        echo "GTK-RS development environment ready (NIGHTLY Rust)!"
         echo "--------------------------------------------------------"
       '';
     };
 
-    # Export packages for building (The 'nix build' targets)
+    # Export packages for building
     packages.${system} = {
       default = nativePackage;
       minimal-gtk-app = nativePackage;

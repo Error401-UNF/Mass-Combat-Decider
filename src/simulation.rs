@@ -206,7 +206,7 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
     console_scrolled_window.set_child(Some(&console_text_view));
     main_vbox.append(&console_scrolled_window);
 
-    if let Ok(mut buffer) = console_buffer.try_borrow_mut() {
+    if let Ok(buffer) = console_buffer.try_borrow_mut() {
         buffer.insert(&mut buffer.start_iter(), "Simulation console: Last 50 lines will be displayed here.\n");
     }
 
@@ -731,7 +731,7 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
             
             let total = d20_roll + modifier;
             
-            if let Ok(mut buffer) = console_buffer_clone.try_borrow_mut() {
+            if let Ok(buffer) = console_buffer_clone.try_borrow_mut() {
                 let mut iter = buffer.end_iter();
                 let message = format!("{}: {} rolled a {} Save: {} (1d20) + {} (Mod) = {}\n",
                     chrono::Local::now().format("%H:%M:%S"),
@@ -806,7 +806,7 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
                 let attack_name = attack_clone.attack_name.clone();
                 let attacks_per_turn = attack_clone.num_attacks;
 
-                if let Ok(mut buffer) = console_buffer_clone.try_borrow_mut() {
+                if let Ok(buffer) = console_buffer_clone.try_borrow_mut() {
                     let mut iter = buffer.end_iter();
                     
                     buffer.insert(&mut iter, &format!("{}: {} started an attack using {} {} times.\n",
