@@ -16,7 +16,7 @@
     # Target system KEY required by GitHub Action for output attribute
     windowsSystem = "x86_64-pc-windows-gnu"; 
     # GCC Triplet KEY for cross-compilation target
-    windowsGccTriplet = "x86_64-w64-mingw32"; 
+    windowsGccTriplet = "x86_64-w64-mingw32"; # The official triplet recognized by MinGW/Autotools
 
     # ---------------------------------------------------------
     # Package Sets
@@ -38,12 +38,24 @@
       system = linuxSystem; # The machine that runs the build (GitHub Runner/Local Machine)
       crossSystem = myCrossSystem; # The target machine architecture (Windows MinGW)
       
-      # FIX: Reintroducing the 'allowUnsupportedSystem' flag to permit dependencies
-      # like libxkbcommon, which are needed by GTK but not officially marked for Windows.
       config = {
         allowUnsupportedSystem = true;
-        # Keeping this off for now, but if you hit a "broken" error again, we'll re-add:
-        allowBroken = true; 
+        allowBroken = true;
+      };
+      
+      # FIX: Use 'overrides' to explicitly manage the Autotools scripts for core MinGW packages.
+      overrides = final: prev: {
+        # FIX: Force the recognized MinGW triplet in the configure flags to bypass the 'Invalid configuration' error.
+        mingw_w64-headers = prev.mingw_w64-headers.overrideAttrs (old: {
+          configureFlags = (old.configureFlags or []) ++ [ "--host=${windowsGccTriplet}" ];
+          # Removing previous attempt: preConfigure = (old.preConfigure or "") + "export build_config=no;";
+        });
+        
+        # FIX: Force the recognized MinGW triplet for binutils as well.
+        binutils = prev.binutils.overrideAttrs (old: {
+          configureFlags = (old.configureFlags or []) ++ [ "--host=${windowsGccTriplet}" ];
+          # Removing previous attempt: preConfigure = (old.preConfigure or "") + "export build_config=no;";
+        });
       };
     };
 
@@ -99,6 +111,7 @@
     # 2. Windows Output (Cross Compiled)
     # The workflow requests: .#packages.x86_64-pc-windows-gnu.default
     packages.${windowsSystem} = {
+      # The target system is x86_64-pc-windows-gnu
       default = mkApp pkgsCrossWindows;
     };
 
