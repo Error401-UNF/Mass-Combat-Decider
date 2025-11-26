@@ -8,6 +8,7 @@ env:
 
 jobs:
   build:
+    # We only need one runner (Ubuntu) because Nix will handle the cross-compilation.
     runs-on: ubuntu-latest
     
     steps:
@@ -21,30 +22,27 @@ jobs:
         # This action automatically installs Nix and configures the environment for flakes.
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Enable Experimental Features for Cross-Compilation
-        # Cross-compilation often requires the `flakes` and `nix-command` features.
+      - name: Enable Experimental Features for Flakes
+        # Only need to enable features needed for building flakes
         run: |
           mkdir -p ~/.config/nix
           echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-          # Allow untrusted paths for the build process
-          echo "build-users-group = nixbld" >> ~/.config/nix/nix.conf
 
       # ------------------
       # 2. Build for Linux (Native Target)
       # ------------------
       - name: Build Linux Binary (Native)
-        # Uses 'nix build' to execute the build within the environment defined by your flake.
-        # The `--file` flag points to your flake and the `devShells` environment.
+        # Uses 'nix build' to execute the build using the native package definition in flake.nix
         run: |
           echo "Building Linux executable..."
-          nix develop --command cargo build --release --target x86_64-unknown-linux-gnu
+          nix build .#packages.x86_64-linux.default --out-link result-linux
         
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Linux-x86_64-release
-          # Assumes your crate name is 'minimal' based on Cargo.toml, adjust if necessary.
-          path: target/x86_64-unknown-linux-gnu/release/*
+          # The result is symlinked by the previous command
+          path: result-linux/bin/*
 
       # ------------------
       # 3. Cross-Compile for Windows (MinGW Target)
