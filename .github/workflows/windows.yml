@@ -48,11 +48,18 @@ jobs:
       # Ensure this command runs inside the MINGW64 shell context.
       shell: msys2 {0}
 
+    # 4. DEBUG STEP: List files in the expected directory
+    - name: List Build Directory Contents
+      run: ls -R Mass-Combat-Decider/build_output
+      # Use the MINGW64 shell for the 'ls' command
+      shell: msys2 {0}
+
     - name: Upload Windows Artifact
       uses: actions/upload-artifact@v4
       with:
         name: windows-app-exe
-        # FIX: Updated the executable name to match the new crate name: MassCombatDecider.
-        path: build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe
+        # Path corrected to include the nested 'Mass-Combat-Decider' directory
+        path: Mass-Combat-Decider/build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe
         retention-days: 7
+
 
