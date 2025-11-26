@@ -13,20 +13,25 @@
     linuxSystem = "x86_64-linux";
     # Target system KEY required by GitHub Action for output attribute
     windowsSystem = "x86_64-pc-windows-gnu"; 
-    # GCC Triplet KEY required for internal pkgsCross lookup
+    # GCC Triplet KEY for cross-compilation target
     windowsGccTriplet = "x86_64-w64-mingw32"; 
 
     # ---------------------------------------------------------
     # Package Sets
     # ---------------------------------------------------------
     
-    # 1a. Native Linux Pkgs (Clean version for devShell and native build)
+    # 1. Native Linux Pkgs (Clean version for devShell and native build)
     pkgsLinuxNative = nixpkgs.legacyPackages.${linuxSystem};
 
-    # 1b. Configured Host Pkgs (Linux set with overrides for cross-compilation)
-    # This set will serve as the base for cross-compilation packages.
-    pkgsLinuxConfigured = import nixpkgs {
-      system = linuxSystem;
+    # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
+    # FIX: Isolate the cross-compilation import to prevent configuration leakage and 
+    # solve the 'attribute missing' error, which occurs because MinGW isn't in 
+    # the default pkgsCross list for this channel.
+    pkgsCrossWindows = import nixpkgs {
+      system = linuxSystem; # The machine that runs the build (GitHub Runner)
+      crossSystem = {
+        config = windowsGccTriplet; # The target machine architecture (Windows MinGW)
+      };
       config = {
         # Allow packages marked as "unsupported" (like libxkbcommon)
         allowUnsupportedSystem = true;
@@ -34,10 +39,6 @@
         allowBroken = true;
       };
     };
-
-    # 2. Cross-Compilation Pkgs (Linux Host -> Windows Target)
-    # FIX: Use the actual GCC triplet for the 'pkgsCross' lookup to prevent the 'attribute missing' error.
-    pkgsCrossWindows = pkgsLinuxConfigured.pkgsCross.${windowsGccTriplet};
 
     # ---------------------------------------------------------
     # Build Logic (Reusable)
@@ -55,6 +56,7 @@
       };
 
       # Native Build Inputs (Tools needed at build time, run on HOST: Linux)
+      # pkgs will be pkgsLinuxNative for Linux build, and pkgsCrossWindows for Windows build.
       nativeBuildInputs = with pkgs; [
         pkg-config
       ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
