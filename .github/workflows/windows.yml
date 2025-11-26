@@ -48,9 +48,9 @@ jobs:
       # Ensure this command runs inside the MINGW64 shell context.
       shell: msys2 {0}
 
-    # 4. DEBUG STEP: List files in the expected directory
-    - name: List Build Directory Contents
-      run: ls -R Mass-Combat-Decider/build_output
+    # 4. DEBUG STEP: List ALL files in the workspace recursively to find the correct path.
+    - name: List All Workspace Contents
+      run: ls -R .
       # Use the MINGW64 shell for the 'ls' command
       shell: msys2 {0}
 
@@ -58,8 +58,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: windows-app-exe
-        # Path corrected to include the nested 'Mass-Combat-Decider' directory
-        path: Mass-Combat-Decider/build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe
+        # >>> REQUIRED ACTION: PASTE THE CORRECT PATH HERE FROM THE 'List All Workspace Contents' OUTPUT! <<<
+        # e.g., build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe
+        path: REPLACE_THIS_WITH_CORRECT_PATH
         retention-days: 7
 
 
