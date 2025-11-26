@@ -15,6 +15,15 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
+    # NEW STEP: Explicitly set up the Rust toolchain and MinGW target. 
+    # This ensures 'cargo' and 'rustup' are reliably on the PATH, 
+    # which the MSYS2 shell will then inherit.
+    - name: Setup Rust Toolchain and MinGW Target
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        target: x86_64-pc-windows-gnu
+
     # 1. Setup MSYS2 environment. This step configures the shell environment.
     - name: Setup MSYS2 Environment
       uses: msys2/setup-msys2@v2
@@ -41,15 +50,11 @@ jobs:
       # We specify the MINGW64 shell to ensure pacman commands execute correctly.
       shell: msys2 {0}
 
-    # 3. Add Rust MinGW Target
-    - name: Add Rust MinGW Target
-      run: rustup target add x86_64-pc-windows-gnu
-
-    # 4. Build the application
+    # 3. Build the application
     - name: Build GTK-RS Application
-      # This uses the MINGW64 environment (which includes pkg-config, GTK4, etc.)
+      # 'cargo' should now be found since the previous step set up the PATH.
       run: cargo build --release
-      # Ensure this command runs inside the MINGW64 shell context.
+      # Ensure this command runs inside the MINGW64 shell context to pick up GTK4 environment variables.
       shell: msys2 {0}
 
     - name: Upload Windows Artifact
