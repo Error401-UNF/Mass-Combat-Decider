@@ -28,6 +28,11 @@
       crossSystem = {
         config = "x86_64-w64-mingw32";
       };
+      # FIX: Allow packages marked as "not for Windows" (like libxkbcommon) to attempt building anyway.
+      # This is often necessary for GTK/Adwaita cross-compilation.
+      config = {
+        allowUnsupportedSystem = true;
+      };
     };
 
     # ---------------------------------------------------------
