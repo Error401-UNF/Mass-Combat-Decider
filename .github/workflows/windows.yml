@@ -48,19 +48,13 @@ jobs:
       # Ensure this command runs inside the MINGW64 shell context.
       shell: msys2 {0}
 
-    # 4. DEBUG STEP: List ALL files in the workspace recursively to find the correct path.
-    - name: List All Workspace Contents
-      run: ls -R .
-      # Use the MINGW64 shell for the 'ls' command
-      shell: msys2 {0}
-
     - name: Upload Windows Artifact
       uses: actions/upload-artifact@v4
       with:
         name: windows-app-exe
         # >>> REQUIRED ACTION: PASTE THE CORRECT PATH HERE FROM THE 'List All Workspace Contents' OUTPUT! <<<
         # e.g., build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe
-        path: REPLACE_THIS_WITH_CORRECT_PATH
+        path: build_output/release/MassCombatDecider.exe
         retention-days: 7
 
 
