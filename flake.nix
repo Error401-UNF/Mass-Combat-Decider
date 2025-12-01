@@ -1,99 +1,98 @@
 {
-  description = "Nix Flake for GTK-RS Development Environment (Linux Native Only)";
+  description = "Nix Flake for GTK-RS Development and Bundling";
 
   inputs = {
-    # Using nixpkgs-unstable for the latest fixes
+    # Pin to nixpkgs-unstable for the latest GTK4 packages
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   outputs = { self, nixpkgs, ... }:
   let
-    # ---------------------------------------------------------
-    # System Definitions
-    # ---------------------------------------------------------
-    linuxSystem = "x86_64-linux";
-    
-    # ---------------------------------------------------------
-    # Package Sets
-    # ---------------------------------------------------------
-    
-    # Native Linux Pkgs (The only package set we are using now)
-    pkgs = nixpkgs.legacyPackages.${linuxSystem};
+    # System definition
+    system = "x86_64-linux";
+    pkgs = nixpkgs.legacyPackages.${system};
 
-    # ---------------------------------------------------------
-    # Build Logic (The final application package)
-    # ---------------------------------------------------------
-    appPackage = pkgs.rustPlatform.buildRustPackage {
-      pname = "gtk-app"; 
+    # Dependencies required by the GTK application
+    gtkDeps = with pkgs; [ gtk4 libadwaita glib xorg.libX11 ];
+
+    # 1. The core Rust package (built with standard rustPlatform)
+    massCombatDecider = pkgs.rustPlatform.buildRustPackage {
+      pname = "mass-combat-decider";
       version = "0.1.0";
       
-      # Use the current directory as source
-      src = ./.;
-
-      # Nix requires the Cargo.lock to build rust packages deterministically
-      cargoLock = {
-        lockFile = ./Cargo.lock;
-      };
-
-      # Native Build Inputs (Tools needed at build time, run on HOST: Linux)
-      nativeBuildInputs = with pkgs; [
-        pkg-config
-        wrapGAppsHook4 # For finding GTK schemas/icons on Linux
-      ];
-
-      # Build Inputs (Libraries linked into the binary, for TARGET: Linux)
-      buildInputs = with pkgs; [
-        gtk4
-        libadwaita
-        glib
-        xorg.libX11
-      ];
+      # Use the special 'self' attribute to reference the directory containing flake.nix
+      src = self; 
       
-      # Enable checks since we are running natively
-      doCheck = true;
+      # Assuming Cargo.lock is in the same directory as flake.nix
+      cargoLock = { lockFile = ./Cargo.lock; }; 
+
+      # Standard build inputs
+      nativeBuildInputs = with pkgs; [ pkg-config ];
+      buildInputs = gtkDeps;
+      
+      # Name of the executable (derived from the crate name)
+      cargoBuildFlags = [ "--bin MassCombatDecider" ];
+    };
+
+    # 2. The final bundled package (creates the AppImage-like wrapper)
+    bundledApp = pkgs.stdenv.mkDerivation {
+      pname = "mass-combat-decider-portable";
+      version = "0.1.0";
+      
+      # Use the output of the built Rust package as the source for the wrapper
+      src = massCombatDecider; 
+
+      # The standard installation directory
+      installPhase = ''
+        localName="mass-combat-decider-portable" # Target name for the AppImage bundler
+        
+        mkdir -p $out/bin
+        
+        # 1. Copy the built executable to the expected name
+        cp $src/bin/MassCombatDecider $out/bin/$localName
+        
+        # 2. Ensure the copied file is executable (crucial for the AppImage bundler)
+        chmod +x $out/bin/$localName
+        
+        # 3. Create the wrapper script with all GTK dependencies
+        wrapProgram $out/bin/$localName \
+          --prefix PATH : ${pkgs.lib.makeBinPath gtkDeps} \
+          --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath gtkDeps}
+      '';
+
+      # Set dependencies so Nix knows what to bundle with the wrapper
+      buildInputs = gtkDeps;
+      
+      # Tools needed to create the wrapper
+      nativeBuildInputs = with pkgs; [ makeWrapper ]; 
     };
 
   in
   {
     # ---------------------------------------------------------
-    # Outputs: Packages
+    # Outputs: Packages (Bundled Linux App)
     # ---------------------------------------------------------
-    
-    # Linux Output (The default package)
-    packages.${linuxSystem}.default = appPackage;
+    packages.${system}.default = bundledApp;
 
     # ---------------------------------------------------------
     # Outputs: DevShell
     # ---------------------------------------------------------
-    devShells.${linuxSystem}.default = pkgs.mkShell {
+    devShells.${system}.default = pkgs.mkShell {
       name = "gtk-rs-development-environment";
 
       nativeBuildInputs = with pkgs; [
-        pkg-config
-        gcc
-        rustc
-        cargo
-        rust-analyzer
-        gobject-introspection
-        libadwaita.dev
-        glib.dev
-        gtk4.dev
-        xorg.libX11.dev
+        pkg-config gcc rustc cargo rust-analyzer gobject-introspection
+        libadwaita.dev glib.dev gtk4.dev xorg.libX11.dev
       ];
 
-      buildInputs = with pkgs; [
-        gtk4
-        libadwaita
-        xorg.libX11
-      ];
-
-      TMPDIR = "/tmp";
+      buildInputs = gtkDeps;
 
       shellHook = ''
         export RUST_BACKTRACE=1
         echo "--------------------------------------------------------"
         echo "GTK-RS development environment ready (Flake-based)!"
         echo "Use 'cargo run' to build and run your GTK application."
+        echo "Use 'nix build' to create the bundled portable app."
         echo "--------------------------------------------------------"
       '';
     };

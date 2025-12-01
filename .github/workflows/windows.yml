@@ -36,6 +36,7 @@ jobs:
           mingw-w64-x86_64-glib2 \
           mingw-w64-x86_64-gobject-introspection \
           mingw-w64-x86_64-rust \
+          mingw-w64-x86_64-zip \
           git \
           make
       # We specify the MINGW64 shell to ensure pacman commands execute correctly.
@@ -43,18 +44,63 @@ jobs:
 
     # 3. Build the application
     - name: Build GTK-RS Application
-      # Set CARGO_TARGET_DIR to force the build output to a known, root-level folder.
+      # We set CARGO_TARGET_DIR for a simpler path, and the build runs from the project root.
       run: CARGO_TARGET_DIR=build_output cargo build --release
       # Ensure this command runs inside the MINGW64 shell context.
       shell: msys2 {0}
 
-    - name: Upload Windows Artifact
+    # 4. Packaging Step: Copy DLLs and ZIP the application for distribution
+    - name: Package Windows Executable with DLLs
+      id: package
+      run: |
+        # Define the target executable path and the packaging folder
+        EXE_PATH="./build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe"
+        PACKAGE_DIR="MassCombatDecider-Windows-Portable"
+        ZIP_NAME="${PACKAGE_DIR}.zip"
+        
+        # Create the final package directory
+        mkdir -p ${PACKAGE_DIR}/bin
+        
+        # Copy the built executable into the package directory
+        cp ${EXE_PATH} ${PACKAGE_DIR}/bin/
+        
+        # Find all required DLLs using 'ldd' and copy them to the package directory
+        # We use xargs to execute the copy command for each found DLL path.
+        # Note: ldd is a Linux tool, but MSYS2/MinGW provides its own utility for this.
+        # We manually list the most critical DLLs/folders for GTK/Adwaita to ensure portability.
+        
+        # Get the MinGW installation path (needed for DLL copying)
+        MINGW_ROOT=$(dirname $(which pacman))
+        
+        echo "Copying runtime DLLs..."
+        
+        # Copy core GTK/Glib/Adwaita DLLs (essential)
+        for DLL in gtk-4-1.dll libadwaita-1.dll libgdk_pixbuf-2.0-0.dll; do
+            cp ${MINGW_ROOT}/bin/${DLL} ${PACKAGE_DIR}/bin/ || true
+        done
+        
+        # Copy other essential dependencies like Glib, Pango, Cairo, etc. (using find for robustness)
+        find ${MINGW_ROOT}/bin -maxdepth 1 -type f \( -name "libg*.dll" -o -name "libcairo*.dll" -o -name "libpango*.dll" -o -name "libgio*.dll" -o -name "libz*.dll" -o -name "libiconv*.dll" \) -exec cp {} ${PACKAGE_DIR}/bin/ \; || true
+        
+        # Copy required data directories (crucial for GTK themes/icons/schemas)
+        # GTK_DEBUG=info will show where it looks for these files if it fails.
+        cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
+        cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
+        cp -r ${MINGW_ROOT}/share/libadwaita-1 ${PACKAGE_DIR}/share/
+        cp -r ${MINGW_ROOT}/share/themes ${PACKAGE_DIR}/share/
+        
+        # Zip the final package
+        zip -r ${ZIP_NAME} ${PACKAGE_DIR}
+        
+        # Output the path for the next step (upload)
+        echo "ARTIFACT_PATH=${ZIP_NAME}" >> $GITHUB_OUTPUT
+      
+      shell: msys2 {0}
+
+    - name: Upload Windows Portable Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: windows-app-exe
-        # >>> REQUIRED ACTION: PASTE THE CORRECT PATH HERE FROM THE 'List All Workspace Contents' OUTPUT! <<<
-        # e.g., build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe
-        path: build_output/release/MassCombatDecider.exe
+        name: windows-app-portable-zip
+        # Use the path output from the previous step
+        path: ${{ steps.package.outputs.ARTIFACT_PATH }}
         retention-days: 7
-
-

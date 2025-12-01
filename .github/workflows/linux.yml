@@ -15,33 +15,38 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ------------------
-      # 1. Setup Nix Environment
-      # ------------------
-      - name: Install Nix and Setup Flake Cache
-        # This action automatically installs Nix and configures the environment for flakes.
-        uses: DeterminateSystems/nix-installer-action@main
-
-      - name: Enable Experimental Features for Flakes
-        # Only need to enable features needed for building flakes
+      # Setup Nix in the GitHub Actions runner
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            substituters = https://cache.nixos.org/
+            
+      # Install the required dependency for AppImage bundling
+      - name: Install Bundler Dependencies
         run: |
-          mkdir -p ~/.config/nix
-          echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+          nix profile install github:ralismark/nix-appimage
 
-      # ------------------
-      # 2. Build for Linux (Native Target)
-      # ------------------
-      - name: Build Linux Binary (Native)
-        # Uses 'nix build' to execute the build using the native package definition in flake.nix
+      # Build the AppImage bundle
+      - name: Build Linux App Bundle (AppImage)
+        id: nix_build
         run: |
-          echo "Building Linux executable..."
-          nix build .#packages.x86_64-linux.default --out-link result-linux
-        
-      - name: Upload Linux Artifact
+          # Use nix bundle with the external bundler to create the AppImage
+          # The output will be a store path that links to the .AppImage file
+          nix bundle . --bundler github:ralismark/nix-appimage
+          
+          # Find the resulting AppImage file in the current directory (linked by 'result-bundle')
+          # The file name will be something like: mass-combat-decider-portable-0.1.0.AppImage
+          APPIMAGE_NAME=$(ls *.AppImage)
+          
+          # Output the path for the next step (upload)
+          echo "ARTIFACT_PATH=${APPIMAGE_NAME}" >> $GITHUB_OUTPUT
+
+
+      - name: Upload Linux App Bundle Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux-x86_64-release
-          # The result is symlinked by the previous command
-          path: result-linux/bin/*
-
-      
+          name: linux-app-bundle
+          path: ${{ steps.nix_build.outputs.ARTIFACT_PATH }}
+          retention-days: 7
