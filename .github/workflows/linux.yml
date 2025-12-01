@@ -15,31 +15,28 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-       # Setup Nix in the GitHub Actions runner
+      # Setup Nix in the GitHub Actions runner
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@v27
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
             substituters = https://cache.nixos.org/
 
-      # Install the required dependency for AppImage bundling
-      - name: Install Bundler Dependencies
-        run: |
-          # Install the nix-appimage utility into the profile
-          nix profile install github:ralismark/nix-appimage
-          
+      # FIX: Removed the failed `nix profile install` step.
+      
       # Build the AppImage bundle
       - name: Build Linux App Bundle (AppImage)
         id: nix_build
         run: |
-          # Use nix bundle, explicitly targeting the default package defined in the local flake (.).
-          # This resolves the 'does not provide attribute' error.
+          # Use nix bundle, explicitly targeting the local default package and using the bundler flake URL.
+          # This command resolves both the target and the bundler directly, avoiding the profile installation error.
           nix bundle .#default --bundler github:ralismark/nix-appimage
           
-          # Find the resulting AppImage file in the current directory (linked by 'result-bundle')
-          # The file name will be something like: mass-combat-decider-portable-0.1.0.AppImage
-          APPIMAGE_NAME=$(ls *.AppImage)
+          # The result of `nix bundle` is a symlink called 'result' or 'result-bundle' 
+          # in the current directory, which points to the final .AppImage file.
+          # We check the content of the linked directory to get the AppImage name.
+          APPIMAGE_NAME=$(ls result-bundle/*.AppImage)
           
           # Output the path for the next step (upload)
           echo "ARTIFACT_PATH=${APPIMAGE_NAME}" >> $GITHUB_OUTPUT

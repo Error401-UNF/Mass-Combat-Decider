@@ -24,12 +24,12 @@ jobs:
         # This ensures the MSYS2 environment is fully initialized.
         update: true 
 
-    # 2. Install Dependencies (Now includes the MinGW-compatible Rust toolchain)
+    # 2. Install Dependencies (Added retry logic for network stability)
     - name: Install GTK4 and Rust Dependencies
+      id: install_deps
       run: |
-        pacman -Syu --noconfirm
-        pacman -S --noconfirm \
-          mingw-w64-x86_64-toolchain \
+        # Define the list of packages to install
+        PACKAGES="mingw-w64-x86_64-toolchain \
           mingw-w64-x86_64-pkg-config \
           mingw-w64-x86_64-gtk4 \
           mingw-w64-x86_64-libadwaita \
@@ -38,8 +38,32 @@ jobs:
           mingw-w64-x86_64-rust \
           zip \
           git \
-          make
-      # We specify the MINGW64 shell to ensure pacman commands execute correctly.
+          make"
+
+        # Use a loop to retry installation up to 3 times in case of transient network errors
+        RETRY_COUNT=0
+        MAX_RETRIES=3
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          # Upgrade and then install packages
+          pacman -Syu --noconfirm && pacman -S --noconfirm $PACKAGES
+          
+          # Check the exit code of the last command
+          if [ $? -eq 0 ]; then
+            echo "Installation successful on attempt $((RETRY_COUNT + 1))."
+            exit 0 # Exit the loop successfully
+          else
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Installation failed on attempt $RETRY_COUNT. Retrying in 5 seconds..."
+            sleep 5 # Wait before retrying
+          fi
+        done
+        
+        # If the loop finishes without success
+        echo "Installation failed after $MAX_RETRIES attempts."
+        exit 1
+      
+      # Ensure this command runs inside the MINGW64 shell context.
       shell: msys2 {0}
 
     # 3. Build the application
@@ -101,3 +125,4 @@ jobs:
         # Use the path output from the previous step
         path: ${{ steps.package.outputs.ARTIFACT_PATH }}
         retention-days: 7
+
