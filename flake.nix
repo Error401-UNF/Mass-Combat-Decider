@@ -70,6 +70,11 @@
   in
   {
     # ---------------------------------------------------------
+    # FIX: Add defaultPackage attribute for nix-appimage bundler
+    # ---------------------------------------------------------
+    defaultPackage.${system} = bundledApp;
+    
+    # ---------------------------------------------------------
     # Outputs: Packages (Bundled Linux App)
     # ---------------------------------------------------------
     packages.${system}.default = bundledApp;
