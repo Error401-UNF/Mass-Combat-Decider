@@ -36,7 +36,7 @@ jobs:
           mingw-w64-x86_64-glib2 \
           mingw-w64-x86_64-gobject-introspection \
           mingw-w64-x86_64-rust \
-          mingw-w64-x86_64-zip \
+          zip \
           git \
           make
       # We specify the MINGW64 shell to ensure pacman commands execute correctly.
@@ -54,6 +54,7 @@ jobs:
       id: package
       run: |
         # Define the target executable path and the packaging folder
+        # NOTE: The path is now relative to the repository root.
         EXE_PATH="./build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
         ZIP_NAME="${PACKAGE_DIR}.zip"
@@ -64,15 +65,15 @@ jobs:
         # Copy the built executable into the package directory
         cp ${EXE_PATH} ${PACKAGE_DIR}/bin/
         
-        # Find all required DLLs using 'ldd' and copy them to the package directory
-        # We use xargs to execute the copy command for each found DLL path.
-        # Note: ldd is a Linux tool, but MSYS2/MinGW provides its own utility for this.
-        # We manually list the most critical DLLs/folders for GTK/Adwaita to ensure portability.
-        
         # Get the MinGW installation path (needed for DLL copying)
         MINGW_ROOT=$(dirname $(which pacman))
         
         echo "Copying runtime DLLs..."
+        
+        # Copy core GTK/Glib/Adwaita DLLs (essential)
+        # We must ensure we copy the necessary data directories (share/etc) for GTK to find themes and schemas.
+        
+        # We use xargs to execute the copy command for each found DLL path.
         
         # Copy core GTK/Glib/Adwaita DLLs (essential)
         for DLL in gtk-4-1.dll libadwaita-1.dll libgdk_pixbuf-2.0-0.dll; do
@@ -80,6 +81,7 @@ jobs:
         done
         
         # Copy other essential dependencies like Glib, Pango, Cairo, etc. (using find for robustness)
+        # Note: Switched to just 'zip' in the pacman step for installation robustness.
         find ${MINGW_ROOT}/bin -maxdepth 1 -type f \( -name "libg*.dll" -o -name "libcairo*.dll" -o -name "libpango*.dll" -o -name "libgio*.dll" -o -name "libz*.dll" -o -name "libiconv*.dll" \) -exec cp {} ${PACKAGE_DIR}/bin/ \; || true
         
         # Copy required data directories (crucial for GTK themes/icons/schemas)

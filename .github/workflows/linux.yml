@@ -15,26 +15,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Setup Nix in the GitHub Actions runner
+       # Setup Nix in the GitHub Actions runner
       - name: Install Nix
         uses: cachix/install-nix-action@v27
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
             substituters = https://cache.nixos.org/
-            
+
       # Install the required dependency for AppImage bundling
       - name: Install Bundler Dependencies
         run: |
+          # Install the nix-appimage utility into the profile
           nix profile install github:ralismark/nix-appimage
-
+          
       # Build the AppImage bundle
       - name: Build Linux App Bundle (AppImage)
         id: nix_build
         run: |
-          # Use nix bundle with the external bundler to create the AppImage
-          # The output will be a store path that links to the .AppImage file
-          nix bundle . --bundler github:ralismark/nix-appimage
+          # Use nix bundle, explicitly targeting the default package defined in the local flake (.).
+          # This resolves the 'does not provide attribute' error.
+          nix bundle .#default --bundler github:ralismark/nix-appimage
           
           # Find the resulting AppImage file in the current directory (linked by 'result-bundle')
           # The file name will be something like: mass-combat-decider-portable-0.1.0.AppImage
@@ -42,7 +43,6 @@ jobs:
           
           # Output the path for the next step (upload)
           echo "ARTIFACT_PATH=${APPIMAGE_NAME}" >> $GITHUB_OUTPUT
-
 
       - name: Upload Linux App Bundle Artifact
         uses: actions/upload-artifact@v4
