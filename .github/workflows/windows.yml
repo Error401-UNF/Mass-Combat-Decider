@@ -54,8 +54,8 @@ jobs:
       id: package
       run: |
         # Define the target executable path and the packaging folder
-        # NOTE: The path is now relative to the repository root.
-        EXE_PATH="./build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe"
+        # CORRECTED PATH: Now includes the nested 'Mass-Combat-Decider' directory
+        EXE_PATH="./Mass-Combat-Decider/build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
         ZIP_NAME="${PACKAGE_DIR}.zip"
         
@@ -70,10 +70,7 @@ jobs:
         
         echo "Copying runtime DLLs..."
         
-        # Copy core GTK/Glib/Adwaita DLLs (essential)
-        # We must ensure we copy the necessary data directories (share/etc) for GTK to find themes and schemas.
-        
-        # We use xargs to execute the copy command for each found DLL path.
+        # We manually list the most critical DLLs/folders for GTK/Adwaita to ensure portability.
         
         # Copy core GTK/Glib/Adwaita DLLs (essential)
         for DLL in gtk-4-1.dll libadwaita-1.dll libgdk_pixbuf-2.0-0.dll; do
@@ -81,11 +78,9 @@ jobs:
         done
         
         # Copy other essential dependencies like Glib, Pango, Cairo, etc. (using find for robustness)
-        # Note: Switched to just 'zip' in the pacman step for installation robustness.
         find ${MINGW_ROOT}/bin -maxdepth 1 -type f \( -name "libg*.dll" -o -name "libcairo*.dll" -o -name "libpango*.dll" -o -name "libgio*.dll" -o -name "libz*.dll" -o -name "libiconv*.dll" \) -exec cp {} ${PACKAGE_DIR}/bin/ \; || true
         
         # Copy required data directories (crucial for GTK themes/icons/schemas)
-        # GTK_DEBUG=info will show where it looks for these files if it fails.
         cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/libadwaita-1 ${PACKAGE_DIR}/share/
