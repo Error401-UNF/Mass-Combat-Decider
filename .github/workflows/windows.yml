@@ -77,45 +77,34 @@ jobs:
     - name: Package Windows Executable with DLLs
       id: package
       run: |
-        # Define the target executable path and the packaging folder
-        # CORRECTED PATH: Now includes the nested 'Mass-Combat-Decider' directory
         EXE_PATH="./build_output/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
         ZIP_NAME="${PACKAGE_DIR}.zip"
         
-        # Create the final package directory
         mkdir -p ${PACKAGE_DIR}/bin
-        
-        # Copy the built executable into the package directory
         cp ${EXE_PATH} ${PACKAGE_DIR}/bin/
         
-        # Get the MinGW installation path (needed for DLL copying)
-        MINGW_ROOT="/usr"
+        # CHANGE: Point to the mingw64 directory instead of /usr
+        MINGW_ROOT="/mingw64"
         
         echo "Copying runtime DLLs..."
         
-        # We manually list the most critical DLLs/folders for GTK/Adwaita to ensure portability.
-        
-        # Copy core GTK/Glib/Adwaita DLLs (essential)
-        for DLL in gtk-4-1.dll libadwaita-1.dll libgdk_pixbuf-2.0-0.dll; do
-            cp ${MINGW_ROOT}/bin/${DLL} ${PACKAGE_DIR}/bin/ || true
+        # CHANGE: Updated DLL names to match MINGW64 conventions
+        for DLL in libgtk-4-1.dll libadwaita-1-0.dll libgdk_pixbuf-2.0-0.dll; do
+            cp ${MINGW_ROOT}/bin/${DLL} ${PACKAGE_DIR}/bin/ || echo "Warning: $DLL not found"
         done
         
-        # Copy other essential dependencies like Glib, Pango, Cairo, etc. (using find for robustness)
+        # This find command will now correctly search /mingw64/bin
         find ${MINGW_ROOT}/bin -maxdepth 1 -type f \( -name "libg*.dll" -o -name "libcairo*.dll" -o -name "libpango*.dll" -o -name "libgio*.dll" -o -name "libz*.dll" -o -name "libiconv*.dll" \) -exec cp {} ${PACKAGE_DIR}/bin/ \; || true
         
-        # Copy required data directories (crucial for GTK themes/icons/schemas)
+        # Copy required data directories from mingw64
         cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/libadwaita-1 ${PACKAGE_DIR}/share/
-        cp -r ${MINGW_ROOT}/share/themes ${PACKAGE_DIR}/share/
+        cp -r ${MINGW_ROOT}/share/icons ${PACKAGE_DIR}/share/ # Added icons (often needed for GTK)
         
-        # Zip the final package
         zip -r ${ZIP_NAME} ${PACKAGE_DIR}
-        
-        # Output the path for the next step (upload)
         echo "ARTIFACT_PATH=${ZIP_NAME}" >> $GITHUB_OUTPUT
-      
       shell: msys2 {0}
 
     - name: Upload Windows Portable Artifact
