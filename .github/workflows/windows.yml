@@ -100,7 +100,7 @@ jobs:
         # Copy required data directories from mingw64
         cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
-        cp -r ${MINGW_ROOT}/share/libadwaita-1 ${PACKAGE_DIR}/share/
+        cp -r ${MINGW_ROOT}/share/libadwaita ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/icons ${PACKAGE_DIR}/share/ # Added icons (often needed for GTK)
         
         zip -r ${ZIP_NAME} ${PACKAGE_DIR}
