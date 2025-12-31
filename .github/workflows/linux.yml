@@ -36,7 +36,7 @@ jobs:
           # The result of `nix bundle` is a symlink called 'result' or 'result-bundle' 
           # in the current directory, which points to the final .AppImage file.
           # We check the content of the linked directory to get the AppImage name.
-          APPIMAGE_NAME=$(ls result-bundle/*.AppImage)
+          APPIMAGE_NAME=$(ls *.AppImage)
           
           # Output the path for the next step (upload)
           echo "ARTIFACT_PATH=${APPIMAGE_NAME}" >> $GITHUB_OUTPUT

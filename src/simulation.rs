@@ -4,30 +4,65 @@ use gtk::{prelude::*, Adjustment, Align, Box, Button, FlowBox, Frame, Label, Lis
 use libadwaita::{Application as AdwApplication, Window as AdwWindow};
 use libadwaita::prelude::AdwWindowExt;
 use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{self, Read, Write};
+use std::path::PathBuf;
 use std::rc::Rc; 
 use std::cell::RefCell;
 use rand::Rng;
 use chrono; 
 
+use crate::monster_manager::get_base_path;
+
 use super::monster_manager::{self, Monster};
 use super::ui_manager; // Import ui_manager to switch back to monster list
 
 /// A struct to hold the data for each individual combatant instance.
-#[derive(Clone)]
+#[derive(Clone,Debug, serde::Serialize,serde::Deserialize)]
 struct Combatant {
     instance_name: String,
     monster_template: Monster,
     current_hp: i32,
+    max_hp: i32,
 }
 
 /// A struct to hold the shared state of the simulation.
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct SimulationState {
     combatants: Rc<RefCell<Vec<Combatant>>>,
     killed_monsters: Rc<RefCell<Vec<Combatant>>>,
     flow_box: FlowBox,
     console_buffer: Rc<RefCell<TextBuffer>>,
     console_text_view: TextView,
+}
+#[derive(Clone,Debug, serde::Serialize, serde::Deserialize)]
+pub struct StaticSimulationState {
+    combatants: Vec<Combatant>,
+    killed_monsters: Vec<Combatant>,
+}
+
+impl StaticSimulationState {
+    fn make_static(simulation_state: &SimulationState) -> Self {
+        let combatants = simulation_state.combatants.borrow().clone();
+        let killed_monsters = simulation_state.killed_monsters.borrow().clone();
+        Self {
+            combatants: combatants,
+            killed_monsters: killed_monsters,
+        }
+    }
+    fn replace_with_static(self, simulation_state: &SimulationState) {
+        let mut combatants = simulation_state.combatants.borrow_mut();
+        let mut killed = simulation_state.killed_monsters.borrow_mut();
+
+        // assume combattents and killed are empty, just fill them idk
+        for mon in self.combatants{
+            combatants.push(mon);
+        }
+        for mon in self.killed_monsters {
+            killed.push(mon)
+        }
+    
+    }
 }
 
 /// This function creates the modal window for selecting monsters and their quantities.
@@ -165,6 +200,7 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
                 instance_name,
                 current_hp: monster.hp, // Set initial HP
                 monster_template: monster.clone(),
+                max_hp: monster.hp
             });
         }
     }
@@ -226,7 +262,7 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
 
     let shared_state = Rc::new(RefCell::new(combatants));
     
-    // Create the simulation state struct
+    
     let simulation_state = SimulationState {
         combatants: Rc::clone(&shared_state),
         killed_monsters: Rc::new(RefCell::new(Vec::new())),
@@ -234,6 +270,16 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
         console_buffer: Rc::clone(&console_buffer),
         console_text_view: console_text_view.clone(),
     };
+
+    // check if simulation file exsists if so set simulation state to that
+    if check_for_simulation() {
+        let static_sim = get_simulation().unwrap();
+        let _ = remove_simulation_file();
+        static_sim.replace_with_static(&simulation_state);
+    }
+
+
+
 
     // Populate the FlowBox with cards from the initial combatant list
     for combatant in shared_state.borrow().iter() {
@@ -288,6 +334,21 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
         ui_manager::switch_to_monster_list(&app_clone_exit, &window_clone_exit);
     });
     button_box.append(&exit_button);
+
+    // Add Save Simulation button
+    let save_button = Button::builder()
+        .label("Save Simulation")
+        .build();
+    save_button.add_css_class("suggested-action");
+
+    let app_clone_save = app.clone();
+    let window_clone_save = window.clone();
+    let simulation_state_clone = simulation_state.clone();
+    save_button.connect_clicked(move |_| {
+        let _ = self::save_simulation(&simulation_state_clone);
+        ui_manager::switch_to_monster_list(&app_clone_save, &window_clone_save);
+    });
+    button_box.append(&save_button);
 
     main_vbox.append(&button_box);
     scrolled_window.set_child(Some(&simulation_state.flow_box));
@@ -546,6 +607,7 @@ fn update_simulation_view(selected_monsters: &Vec<(Monster, i32)>, simulation_st
                     instance_name,
                     current_hp: monster_template.hp,
                     monster_template: monster_template.clone(),
+                    max_hp: monster_template.hp,
                 });
             }
         }
@@ -669,6 +731,8 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
         .adjustment(&hp_adj)
         .numeric(true)
         .build();
+    let max_hp_label = Label::new(Some(&format!("Max HP: {}",combatant.max_hp)));
+
 
     // Update the combatant's HP in the shared state when the spin button value changes
     let combatants_clone = Rc::clone(&simulation_state.combatants);
@@ -685,6 +749,7 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
 
     stats_box.append(&hp_label);
     stats_box.append(&hp_spin_button);
+    stats_box.append(&max_hp_label);
     stats_box.append(&ac_label);
     vbox.append(&stats_box);
 
@@ -865,4 +930,69 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
 
     card_frame.set_child(Some(&vbox));
     card_frame
+}
+
+fn save_simulation(simulation_state: &SimulationState) -> io::Result<()> {
+    // Ensure the Monsters directory exists.
+    let mut path = get_base_path()?;
+    if !path.exists() {
+        fs::create_dir(&path)?;
+    }
+
+    // Create the file path for the new monster.
+    path.push(format!("active_simulation.json",));
+    let static_sim = StaticSimulationState::make_static(simulation_state);
+    let json_data = serde_json::to_string_pretty(&static_sim)?;
+    let mut file = File::create(&path)?;
+    file.write_all(json_data.as_bytes())?;
+
+    //println!("Saved simulation to file: {:?}", path);
+    Ok(())
+}
+
+fn get_simulation() -> Option<StaticSimulationState> {
+    // gets and delets the saved simulation file
+    let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
+    path.pop();
+    path.push("active_simulation.json");
+
+    let mut file = match File::open(&path) {
+        Ok(f) => f,
+        Err(_) => return None,
+    };
+
+    let mut contents = String::new();
+    if file.read_to_string(&mut contents).is_err() {
+        return None;
+    }
+
+    match serde_json::from_str(&contents) {
+        Ok(simulation) => Some(simulation),
+        Err(e) => {
+            eprintln!("Failed to parse monster JSON for active_simulation.json: {}", e);
+            None
+        }
+    }
+}
+
+pub fn remove_simulation_file() -> io::Result<()>{
+    // check if file exsists
+    if check_for_simulation(){
+        // kill it
+        let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
+        path.pop();
+        path.push("active_simulation.json");
+        fs::remove_file(&path)?;
+    }
+    Ok(())
+}
+
+pub fn check_for_simulation() -> bool {
+    let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
+    path.pop(); // Go up one level from the executable to the target/debug or target/release directory
+    path.push("active_simulation.json"); // Append the "Monsters" directory
+
+    //println!("Checking for active simulation at: {:?}", path);
+    path.exists()
+
 }

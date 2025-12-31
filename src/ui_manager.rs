@@ -12,6 +12,8 @@ use libadwaita::{prelude::*,};
 use libadwaita::Application as AdwApplication;
 use libadwaita::Window as AdwWindow;
 
+use crate::monster_manager::Monster;
+
 use super::{monster_manager, simulation};
 
 // Displays a modal window for creating a new monster.
@@ -57,13 +59,13 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     let (exp_label, exp_entry) = create_label_entry_pair("EXP:", "Enter experience points...");
 
     // Create dropdowns for stats with predefined values.
-    let (prof_label, prof_dropdown) = create_label_dropdown_pair("Proficiency Bonus:", &["1","2","3","4","5","6","7","8"]);
-    let (str_label, str_dropdown) = create_label_dropdown_pair("Strength Mod:", &["-2","-1","0","1","2","3","4","5","6","7","8"]);
-    let (dex_label, dex_dropdown) = create_label_dropdown_pair("Dexterity Mod:", &["-2","-1","0","1","2","3","4","5","6","7","8"]);
-    let (con_label, con_dropdown) = create_label_dropdown_pair("Constitution Mod:", &["-2","-1","0","1","2","3","4","5","6","7","8"]);
-    let (int_label, int_dropdown) = create_label_dropdown_pair("Intelligence Mod:", &["-2","-1","0","1","2","3","4","5","6","7","8"]);
-    let (wis_label, wis_dropdown) = create_label_dropdown_pair("Wisdom Mod:", &["-2","-1","0","1","2","3","4","5","6","7","8"]);
-    let (cha_label, cha_dropdown) = create_label_dropdown_pair("Charisma Mod:", &["-2","-1","0","1","2","3","4","5","6","7","8"]);
+    let (prof_label, prof_entry) = create_label_entry_pair("Proficiency Bonus:", "1");
+    let (str_label, str_entry) = create_label_entry_pair("Strength Mod:", "0");
+    let (dex_label, dex_entry) = create_label_entry_pair("Dexterity Mod:", "0");
+    let (con_label, con_entry) = create_label_entry_pair("Constitution Mod:", "0");
+    let (int_label, int_entry) = create_label_entry_pair("Intelligence Mod:", "0");
+    let (wis_label, wis_entry) = create_label_entry_pair("Wisdom Mod:", "0");
+    let (cha_label, cha_entry) = create_label_entry_pair("Charisma Mod:", "0");
 
     // Attach widgets to the grid.
     input_grid.attach(&monster_name_label, 0, 0, 1, 1);
@@ -75,19 +77,19 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     input_grid.attach(&exp_label, 0, 3, 1, 1);
     input_grid.attach_next_to(&exp_entry, Some(&exp_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&prof_label, 0, 4, 1, 1);
-    input_grid.attach_next_to(&prof_dropdown, Some(&prof_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach_next_to(&prof_entry, Some(&prof_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&str_label, 0, 5, 1, 1);
-    input_grid.attach_next_to(&str_dropdown, Some(&str_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach_next_to(&str_entry, Some(&str_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&dex_label, 0, 6, 1, 1);
-    input_grid.attach_next_to(&dex_dropdown, Some(&dex_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach_next_to(&dex_entry, Some(&dex_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&con_label, 0, 7, 1, 1);
-    input_grid.attach_next_to(&con_dropdown, Some(&con_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach_next_to(&con_entry, Some(&con_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&int_label, 0, 8, 1, 1);
-    input_grid.attach_next_to(&int_dropdown, Some(&int_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach_next_to(&int_entry, Some(&int_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&wis_label, 0, 9, 1, 1);
-    input_grid.attach_next_to(&wis_dropdown, Some(&wis_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach_next_to(&wis_entry, Some(&wis_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&cha_label, 0, 10, 1, 1);
-    input_grid.attach_next_to(&cha_dropdown, Some(&cha_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach_next_to(&cha_entry, Some(&cha_label), gtk::PositionType::Right, 1, 1);
 
     // Label for displaying validation errors to the user.
     let error_label = Label::builder()
@@ -120,13 +122,13 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     let hp_entry_clone = hp_entry.clone();
     let ac_entry_clone = ac_entry.clone();
     let exp_entry_clone = exp_entry.clone();
-    let prof_dropdown_clone = prof_dropdown.clone();
-    let str_dropdown_clone = str_dropdown.clone();
-    let dex_dropdown_clone = dex_dropdown.clone();
-    let con_dropdown_clone = con_dropdown.clone();
-    let int_dropdown_clone = int_dropdown.clone();
-    let wis_dropdown_clone = wis_dropdown.clone();
-    let cha_dropdown_clone = cha_dropdown.clone();
+    let prof_entry_clone = prof_entry.clone();
+    let str_entry_clone = str_entry.clone();
+    let dex_entry_clone = dex_entry.clone();
+    let con_entry_clone = con_entry.clone();
+    let int_entry_clone = int_entry.clone();
+    let wis_entry_clone = wis_entry.clone();
+    let cha_entry_clone = cha_entry.clone();
     let window_clone = window.clone();
     let parent_window_clone = parent_window.clone();
     let app_clone = app.clone();
@@ -141,17 +143,6 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             entry.text()
                 .parse::<i32>()
                 .map_err(|_| format!("'{}' must be a valid number.", field_name))
-        };
-
-        // Helper function to safely get and parse integer values from DropDown widgets.
-        let get_dropdown_int = |dropdown: &DropDown, field_name: &str| -> Result<i32, String> {
-            let selected_string = dropdown.selected_item()
-                .and_then(|obj| obj.downcast_ref::<StringObject>().map(|s_obj| s_obj.string().to_string()))
-                .ok_or_else(|| format!("Please select a value for '{}'.", field_name))?;
-            
-            selected_string
-                .parse::<i32>()
-                .map_err(|_| format!("Invalid value selected for '{}'.", field_name))
         };
         
         let name = monster_name_entry_clone.text().to_string();
@@ -184,7 +175,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             }
         };
 
-        let pb = match get_dropdown_int(&prof_dropdown_clone, "Proficiency Bonus") {
+        let pb = match parse_int_entry(&prof_entry_clone, "Proficiency Bonus") {
             Ok(val) => val,
             Err(e) => {
                 error_label_clone.set_text(&e);
@@ -192,7 +183,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             }
         };
 
-        let str_mod = match get_dropdown_int(&str_dropdown_clone, "Strength Mod") {
+        let str_mod = match parse_int_entry(&str_entry_clone, "Strength Mod") {
             Ok(val) => val,
             Err(e) => {
                 error_label_clone.set_text(&e);
@@ -200,7 +191,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             }
         };
 
-        let dex_mod = match get_dropdown_int(&dex_dropdown_clone, "Dexterity Mod") {
+        let dex_mod = match parse_int_entry(&dex_entry_clone, "Dexterity Mod") {
             Ok(val) => val,
             Err(e) => {
                 error_label_clone.set_text(&e);
@@ -208,7 +199,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             }
         };
 
-        let con_mod = match get_dropdown_int(&con_dropdown_clone, "Constitution Mod") {
+        let con_mod = match parse_int_entry(&con_entry_clone, "Constitution Mod") {
             Ok(val) => val,
             Err(e) => {
                 error_label_clone.set_text(&e);
@@ -216,7 +207,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             }
         };
 
-        let int_mod = match get_dropdown_int(&int_dropdown_clone, "Intelligence Mod") {
+        let int_mod = match parse_int_entry(&int_entry_clone, "Intelligence Mod") {
             Ok(val) => val,
             Err(e) => {
                 error_label_clone.set_text(&e);
@@ -224,7 +215,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             }
         };
 
-        let wis_mod = match get_dropdown_int(&wis_dropdown_clone, "Wisdom Mod") {
+        let wis_mod = match parse_int_entry(&wis_entry_clone, "Wisdom Mod") {
             Ok(val) => val,
             Err(e) => {
                 error_label_clone.set_text(&e);
@@ -232,7 +223,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             }
         };
 
-        let cha_mod = match get_dropdown_int(&cha_dropdown_clone, "Charisma Mod") {
+        let cha_mod = match parse_int_entry(&cha_entry_clone, "Charisma Mod") {
             Ok(val) => val,
             Err(e) => {
                 error_label_clone.set_text(&e);
@@ -254,6 +245,253 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             wis_mod,
             cha_mod,
             attacks: Vec::new(),
+        };
+
+        // Save the monster and handle potential errors.
+        if let Err(e) = monster_manager::save_monster(new_monster) {
+            error_label_clone.set_text(&format!("Failed to save monster: {}", e));
+            return;
+        }
+
+        // Close the modal and refresh the parent window's monster list.
+        window_clone.close();
+        switch_to_monster_list(&app_clone, &parent_window_clone);
+    });
+
+    // Connect cancel button to simply close the window.
+    let window_clone_cancel = window.clone();
+    cancel_button.connect_clicked(move |_| {
+        window_clone_cancel.close();
+    });
+
+    // Assemble the main window layout.
+    window_vbox.append(&title_label);
+    window_vbox.append(&input_grid);
+    window_vbox.append(&error_label);
+    window_vbox.append(&button_box);
+
+    window.set_content(Some(&window_vbox));
+    window.present();
+}
+
+pub fn edit_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindow, monster: Monster) {
+    // Create the modal window with a title and dimensions.
+    let window = AdwWindow::builder()
+        .application(app)
+        .title("Monster Builder")
+        .transient_for(parent_window)
+        .default_width(500)
+        .default_height(500)
+        .modal(true)
+        .build();
+
+    // Create the main vertical box to hold all UI elements.
+    let window_vbox = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .margin_start(24)
+        .margin_end(24)
+        .margin_top(24)
+        .margin_bottom(24)
+        .build();
+
+    // Title label for the menu.
+    let title_label = Label::builder()
+        .label(format!("Modify {}",monster.name))
+        .halign(Align::Center)
+        .build();
+    title_label.add_css_class("title-1");
+
+    // Grid for arranging the input fields. Grids are ideal for form-like layouts.
+    let input_grid = Grid::builder()
+        .row_spacing(12)
+        .column_spacing(12)
+        .halign(Align::Center)
+        .build();
+
+    // Create entry fields for monster stats.
+    let (hp_label, hp_entry) = create_text_label_entry_pair("HP:", &format!("{}",monster.hp));
+    let (ac_label, ac_entry) = create_text_label_entry_pair("AC:", &format!("{}",monster.ac));
+    let (exp_label, exp_entry) = create_text_label_entry_pair("EXP:", &format!("{}",monster.exp));
+
+    // Create dropdowns for stats with predefined values.
+    let (prof_label, prof_entry) = create_text_label_entry_pair("Proficiency Bonus:", &format!("{}",monster.pb));
+    let (str_label, str_entry) = create_text_label_entry_pair("Strength Mod:", &format!("{}",monster.str_mod));
+    let (dex_label, dex_entry) = create_text_label_entry_pair("Dexterity Mod:", &format!("{}",monster.dex_mod));
+    let (con_label, con_entry) = create_text_label_entry_pair("Constitution Mod:", &format!("{}",monster.con_mod));
+    let (int_label, int_entry) = create_text_label_entry_pair("Intelligence Mod:", &format!("{}",monster.int_mod));
+    let (wis_label, wis_entry) = create_text_label_entry_pair("Wisdom Mod:", &format!("{}",monster.wis_mod));
+    let (cha_label, cha_entry) = create_text_label_entry_pair("Charisma Mod:", &format!("{}",monster.cha_mod));
+
+    // Attach widgets to the grid.
+    input_grid.attach(&hp_label, 0, 1, 1, 1);
+    input_grid.attach_next_to(&hp_entry, Some(&hp_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&ac_label, 0, 2, 1, 1);
+    input_grid.attach_next_to(&ac_entry, Some(&ac_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&exp_label, 0, 3, 1, 1);
+    input_grid.attach_next_to(&exp_entry, Some(&exp_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&prof_label, 0, 4, 1, 1);
+    input_grid.attach_next_to(&prof_entry, Some(&prof_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&str_label, 0, 5, 1, 1);
+    input_grid.attach_next_to(&str_entry, Some(&str_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&dex_label, 0, 6, 1, 1);
+    input_grid.attach_next_to(&dex_entry, Some(&dex_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&con_label, 0, 7, 1, 1);
+    input_grid.attach_next_to(&con_entry, Some(&con_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&int_label, 0, 8, 1, 1);
+    input_grid.attach_next_to(&int_entry, Some(&int_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&wis_label, 0, 9, 1, 1);
+    input_grid.attach_next_to(&wis_entry, Some(&wis_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&cha_label, 0, 10, 1, 1);
+    input_grid.attach_next_to(&cha_entry, Some(&cha_label), gtk::PositionType::Right, 1, 1);
+
+    // Label for displaying validation errors to the user.
+    let error_label = Label::builder()
+        .label("")
+        .halign(Align::Center)
+        .margin_top(6)
+        .margin_bottom(6)
+        .build();
+
+    // Create buttons for saving or canceling.
+    let button_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .halign(Align::End)
+        .build();
+
+    let save_button = Button::builder()
+        .label("Save Monster")
+        .build();
+
+    let cancel_button = Button::builder()
+        .label("Cancel")
+        .build();
+
+    button_box.append(&save_button);
+    button_box.append(&cancel_button);
+
+    // Clone widgets for use in closures.
+    let hp_entry_clone = hp_entry.clone();
+    let ac_entry_clone = ac_entry.clone();
+    let exp_entry_clone = exp_entry.clone();
+    let prof_entry_clone = prof_entry.clone();
+    let str_entry_clone = str_entry.clone();
+    let dex_entry_clone = dex_entry.clone();
+    let con_entry_clone = con_entry.clone();
+    let int_entry_clone = int_entry.clone();
+    let wis_entry_clone = wis_entry.clone();
+    let cha_entry_clone = cha_entry.clone();
+    let window_clone = window.clone();
+    let parent_window_clone = parent_window.clone();
+    let app_clone = app.clone();
+    let error_label_clone = error_label.clone();
+
+    // Connect save button to the logic for creating and saving the monster.
+    save_button.connect_clicked(move |_| {
+        error_label_clone.set_text(""); // Clear previous errors.
+
+        // Helper function to safely parse integer values from Entry widgets.
+        let parse_int_entry = |entry: &Entry, field_name: &str| -> Result<i32, String> {
+            entry.text()
+                .parse::<i32>()
+                .map_err(|_| format!("'{}' must be a valid number.", field_name))
+        };
+        
+        let hp = match parse_int_entry(&hp_entry_clone, "HP") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let ac = match parse_int_entry(&ac_entry_clone, "AC") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+        
+        let exp = match parse_int_entry(&exp_entry_clone, "EXP") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let pb = match parse_int_entry(&prof_entry_clone, "Proficiency Bonus") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let str_mod = match parse_int_entry(&str_entry_clone, "Strength Mod") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let dex_mod = match parse_int_entry(&dex_entry_clone, "Dexterity Mod") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let con_mod = match parse_int_entry(&con_entry_clone, "Constitution Mod") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let int_mod = match parse_int_entry(&int_entry_clone, "Intelligence Mod") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let wis_mod = match parse_int_entry(&wis_entry_clone, "Wisdom Mod") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        let cha_mod = match parse_int_entry(&cha_entry_clone, "Charisma Mod") {
+            Ok(val) => val,
+            Err(e) => {
+                error_label_clone.set_text(&e);
+                return;
+            }
+        };
+
+        // Create the new Monster struct.
+        let new_monster = monster_manager::Monster {
+            name: monster.name.clone(),
+            hp,
+            ac,
+            exp,
+            pb,
+            str_mod,
+            dex_mod,
+            con_mod,
+            int_mod,
+            wis_mod,
+            cha_mod,
+            attacks: monster.attacks.clone(),
         };
 
         // Save the monster and handle potential errors.
@@ -360,8 +598,15 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
         .build();
     start_simulation_button.add_css_class("suggested-action");
 
+    let continue_simulation_button = Button::builder()
+        .label("Continue Simulation")
+        .build();
+
     top_button_box.append(&create_monster_button);
     top_button_box.append(&start_simulation_button);
+    if simulation::check_for_simulation(){
+        top_button_box.append(&continue_simulation_button);
+    }
     
     main_vbox.append(&title_label);
     main_vbox.append(&top_button_box);
@@ -375,7 +620,14 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     let app_clone_sim = app.clone();
     let window_clone_sim = window.clone();
     start_simulation_button.connect_clicked(move |_| {
+        let _ = simulation::remove_simulation_file();
         simulation::show_simulation_setup_menu(&app_clone_sim, &window_clone_sim);
+    });
+
+    let app_clone_continue_sim = app.clone();
+    let window_clone_continue_sim = window.clone();
+    continue_simulation_button.connect_clicked(move |_| {
+        simulation::start_simulation_view(&app_clone_continue_sim, &window_clone_continue_sim, Vec::new());
     });
     
     // Scrolled window to handle a long list of monsters.
@@ -428,7 +680,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
                 .build();
 
             let stats_label = Label::builder()
-                .label(&format!("HP: {}, AC: {}, EXP: {}, PB: {}, STR: {}, DEX: {}, CON: {}, INT: {}, WIS: {}, CHA: {}",
+                .label(&format!("HP: {}, AC: {}, EXP: {}, PB: {}, \nSTR: {}, DEX: {}, CON: {}, INT: {}, WIS: {}, CHA: {}",
                     monster.hp, monster.ac, monster.exp, monster.pb,
                     monster.str_mod, monster.dex_mod, monster.con_mod,
                     monster.int_mod, monster.wis_mod, monster.cha_mod))
@@ -457,17 +709,30 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
                 .halign(Align::End)
                 .spacing(6)
                 .build();
-            
+
+            let edit_monster_button = Button::with_label("Edit");
             let add_attack_button = Button::with_label("Add Attack");
             let remove_attack_button = Button::with_label("Remove Attack");
             let delete_button = Button::with_label("Delete");
             delete_button.add_css_class("destructive-action");
             
+            button_box.append(&edit_monster_button);
             button_box.append(&add_attack_button);
             button_box.append(&remove_attack_button);
             button_box.append(&delete_button);
 
             // Connect button signals.
+            let monster_for_edit = monster.clone();
+            let app_clone_for_edit = app.clone();
+            let window_clone_for_edit = window.clone();
+            edit_monster_button.connect_clicked(move |_| {
+                edit_monster_creation_menu(
+                    &app_clone_for_edit,
+                    &window_clone_for_edit,
+                    monster_for_edit.clone(),
+                )
+            });
+
             let monster_name_for_attack = monster.name.clone();
             let app_clone_for_attack = app.clone();
             let window_clone_for_attack = window.clone();
@@ -523,6 +788,19 @@ fn create_label_entry_pair(label_text: &str, placeholder_text: &str) -> (Label, 
 
     let entry = Entry::builder()
         .placeholder_text(placeholder_text)
+        .build();
+
+    (label, entry)
+}
+
+fn create_text_label_entry_pair(label_text: &str, text: &str) -> (Label, Entry) {
+    let label = Label::builder()
+        .label(label_text)
+        .halign(Align::Start)
+        .build();
+
+    let entry = Entry::builder()
+        .text(text)
         .build();
 
     (label, entry)

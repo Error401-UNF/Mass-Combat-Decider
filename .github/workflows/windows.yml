@@ -79,7 +79,7 @@ jobs:
       run: |
         # Define the target executable path and the packaging folder
         # CORRECTED PATH: Now includes the nested 'Mass-Combat-Decider' directory
-        EXE_PATH="./Mass-Combat-Decider/build_output/x86_64-pc-windows-gnu/release/MassCombatDecider.exe"
+        EXE_PATH="./build_output/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
         ZIP_NAME="${PACKAGE_DIR}.zip"
         

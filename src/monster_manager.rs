@@ -47,6 +47,13 @@ pub fn check_for_monsters() -> bool {
     path.exists()
 }
 
+pub fn get_base_path() -> io::Result<PathBuf> {
+    let mut path = std::env::current_exe()?;
+    path.pop(); // Go up one level to not refer to the exe file itself
+    Ok(path)
+}
+
+
 /// Saves a monster to a JSON file.
 pub fn save_monster(monster: Monster) -> io::Result<()> {
     // Ensure the Monsters directory exists.
@@ -112,6 +119,7 @@ pub fn read_all_monsters() -> Vec<Monster> {
             }
         }
     }
+    monsters.sort_by( |a,b| a.name.cmp(&b.name));
     monsters
 }
 
