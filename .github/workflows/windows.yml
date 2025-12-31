@@ -98,7 +98,7 @@ jobs:
         find ${MINGW_ROOT}/bin -maxdepth 1 -type f \( -name "libg*.dll" -o -name "libcairo*.dll" -o -name "libpango*.dll" -o -name "libgio*.dll" -o -name "libz*.dll" -o -name "libiconv*.dll" \) -exec cp {} ${PACKAGE_DIR}/bin/ \; || true
         
         # Copy required data directories from mingw64
-        ls {MINGW_ROOT}/share
+        ls ${MINGW_ROOT}/share
         cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/libadwaita ${PACKAGE_DIR}/share/
