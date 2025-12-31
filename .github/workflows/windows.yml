@@ -90,7 +90,7 @@ jobs:
         cp ${EXE_PATH} ${PACKAGE_DIR}/bin/
         
         # Get the MinGW installation path (needed for DLL copying)
-        MINGW_ROOT=$(dirname $(which pacman))
+        MINGW_ROOT="/usr/"
         
         echo "Copying runtime DLLs..."
         
