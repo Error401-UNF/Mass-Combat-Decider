@@ -79,7 +79,6 @@ jobs:
       run: |
         EXE_PATH="./build_output/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
-        ZIP_NAME="${PACKAGE_DIR}.zip"
         
         mkdir -p ${PACKAGE_DIR}/bin
         mkdir -p ${PACKAGE_DIR}/share
@@ -115,8 +114,7 @@ jobs:
         # Compile GLib schemas
         glib-compile-schemas ${PACKAGE_DIR}/share/glib-2.0/schemas
         
-        zip -r ${ZIP_NAME} ${PACKAGE_DIR}
-        echo "ARTIFACT_PATH=${ZIP_NAME}" >> $GITHUB_OUTPUT
+        echo "ARTIFACT_PATH=$${PACKAGE_DIR}" >> $GITHUB_OUTPUT
       shell: msys2 {0}
       
     - name: Upload Windows Portable Artifact
