@@ -1,19 +1,19 @@
-name: Linux
+name: Linux (Lean AppImage)
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # Use an older LTS for better compatibility
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install System Dependencies
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libglib2.0-dev pkg-config build-essential
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev pkg-config libglib2.0-dev wget
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -21,27 +21,32 @@ jobs:
       - name: Build Release
         run: cargo build --release
 
-      - name: Strip Binary
-        run: strip target/release/MassCombatDecider
+      - name: Setup AppDir and Bundle
+        run: |
+          # 1. Create the AppDir structure
+          mkdir -p AppDir/usr/bin
+          cp target/release/MassCombatDecider AppDir/usr/bin/
+          strip AppDir/usr/bin/MassCombatDecider
 
-      - name: Build AppImage (Manual)
-        uses: AppImageCrafters/build-appimage-action@v2
+          # 2. Download linuxdeploy (the tool that makes the AppImage)
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+          # 3. Download the GTK plugin (essential for GTK4/Adwaita)
+          wget https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.sh
+          chmod +x linuxdeploy-plugin-gtk-x86_64.sh
+
+          # 4. Run the bundler
+          # We set DEPLOY_GTK_VERSION=4 to tell it we are using GTK4
+          export DEPLOY_GTK_VERSION=4
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin gtk --output appimage \
+            --executable AppDir/usr/bin/MassCombatDecider
+
+          # Rename it for easier finding
+          mv Mass_Combat_Decider*.AppImage MassCombatDecider-Linux.AppImage
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          recipe: |
-            version: 1
-            AppDir:
-              path: ./AppDir
-              app_info:
-                id: mass-combat-decider
-                name: MassCombatDecider
-                icon: utilities-terminal
-                exec: bin/MassCombatDecider
-              runtime:
-                generator: wrapper
-              apt:
-                include:
-                  - libgtk-4-1
-                  - libadwaita-1-0
-            AppImage:
-              arch: x86_64
-              update-information: None
+          name: linux-app-bundle
+          path: MassCombatDecider-Linux.AppImage
