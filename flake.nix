@@ -18,7 +18,7 @@
     # 1. The core Rust package (built with standard rustPlatform)
     massCombatDecider = pkgs.rustPlatform.buildRustPackage {
       pname = "mass-combat-decider";
-      version = "0.1.0";
+      version = "0.1.1";
       
       # Use the special 'self' attribute to reference the directory containing flake.nix
       src = self; 
@@ -32,12 +32,15 @@
       
       # Name of the executable (derived from the crate name)
       cargoBuildFlags = [ "--bin MassCombatDecider" ];
+  
+      # This tells Nix to remove debug symbols from the final binary
+      dontStrip = false;
     };
 
     # 2. The final bundled package (creates the AppImage-like wrapper)
     bundledApp = pkgs.stdenv.mkDerivation {
       pname = "mass-combat-decider-portable";
-      version = "0.1.0";
+      version = "0.1.1";
       
       # Use the output of the built Rust package as the source for the wrapper
       src = massCombatDecider; 

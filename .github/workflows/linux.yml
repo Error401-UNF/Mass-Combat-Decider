@@ -3,47 +3,45 @@ name: Linux
 on:
   workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   build:
-    # We only need one runner (Ubuntu) because Nix will handle the cross-compilation.
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-22.04 # Use an older LTS for better compatibility
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Setup Nix in the GitHub Actions runner
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            substituters = https://cache.nixos.org/
-
-      # FIX: Removed the failed `nix profile install` step.
-      
-      # Build the AppImage bundle
-      - name: Build Linux App Bundle (AppImage)
-        id: nix_build
+      - name: Install System Dependencies
         run: |
-          # Use nix bundle, explicitly targeting the local default package and using the bundler flake URL.
-          # This command resolves both the target and the bundler directly, avoiding the profile installation error.
-          nix bundle .#default --bundler github:ralismark/nix-appimage
-          
-          # The result of `nix bundle` is a symlink called 'result' or 'result-bundle' 
-          # in the current directory, which points to the final .AppImage file.
-          # We check the content of the linked directory to get the AppImage name.
-          APPIMAGE_NAME=$(ls *.AppImage)
-          
-          # Output the path for the next step (upload)
-          echo "ARTIFACT_PATH=${APPIMAGE_NAME}" >> $GITHUB_OUTPUT
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libglib2.0-dev pkg-config build-essential
 
-      - name: Upload Linux App Bundle Artifact
-        uses: actions/upload-artifact@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Strip Binary
+        run: strip target/release/MassCombatDecider
+
+      - name: Build AppImage (Manual)
+        uses: AppImageCrafters/build-appimage-action@v2
         with:
-          name: linux-app-bundle
-          path: ${{ steps.nix_build.outputs.ARTIFACT_PATH }}
-          retention-days: 7
+          recipe: |
+            version: 1
+            AppDir:
+              path: ./AppDir
+              app_info:
+                id: mass-combat-decider
+                name: MassCombatDecider
+                icon: utilities-terminal
+                exec: bin/MassCombatDecider
+              runtime:
+                generator: wrapper
+              apt:
+                include:
+                  - libgtk-4-1
+                  - libadwaita-1-0
+            AppImage:
+              arch: x86_64
+              update-information: None
