@@ -28,6 +28,11 @@ jobs:
           cp target/release/MassCombatDecider AppDir/usr/bin/
           strip AppDir/usr/bin/MassCombatDecider
 
+          # 2. CREATE ICON FIRST (Root of AppDir)
+          # We use a standard name that we will also put in the desktop file
+          cp /usr/share/icons/Adwaita/scalable/devices/computer-symbolic.svg AppDir/appicon.svg
+
+
           # 4. Download linuxdeploy (the tool that makes the AppImage)
           wget -c https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
@@ -42,6 +47,7 @@ jobs:
           ./linuxdeploy-x86_64.AppImage --appdir AppDir \
             --executable AppDir/usr/bin/MassCombatDecider \
             --create-desktop-file \
+            -i AppDir/appicon.svg \
             --plugin gtk --output appimage
 
           # Rename it for easier finding
