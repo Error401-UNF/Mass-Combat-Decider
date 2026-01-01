@@ -41,6 +41,7 @@ jobs:
           export DEPLOY_GTK_VERSION=4
           ./linuxdeploy-x86_64.AppImage --appdir AppDir \
             --executable AppDir/usr/bin/MassCombatDecider \
+            --create-desktop-file \
             --plugin gtk --output appimage
 
           # Rename it for easier finding
