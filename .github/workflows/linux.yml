@@ -28,7 +28,7 @@ jobs:
           cp target/release/MassCombatDecider AppDir/usr/bin/
           strip AppDir/usr/bin/MassCombatDecider
 
-           # 2. CREATE ICON FIRST (Root of AppDir)
+          # 2. CREATE ICON FIRST (Root of AppDir)
           # We use a standard name that we will also put in the desktop file
           cp /usr/share/icons/Adwaita/scalable/devices/computer-symbolic.svg AppDir/appicon.svg
 
