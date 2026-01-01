@@ -28,15 +28,32 @@ jobs:
           cp target/release/MassCombatDecider AppDir/usr/bin/
           strip AppDir/usr/bin/MassCombatDecider
 
-          # 2. Download linuxdeploy (the tool that makes the AppImage)
+          # 2. CREATE DUMMY DESKTOP FILE (Required by AppImage)
+          cat > AppDir/MassCombatDecider.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=MassCombatDecider
+          Exec=MassCombatDecider
+          Icon=utilities-terminal
+          Categories=Utility;
+          Terminal=false
+          EOF
+
+          # 3. CREATE DUMMY ICON (Required by AppImage)
+          # We'll just copy a system icon to satisfy the requirement
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+          cp /usr/share/icons/Adwaita/scalable/devices/computer-symbolic.svg AppDir/MassCombatDecider.svg
+
+
+          # 4. Download linuxdeploy (the tool that makes the AppImage)
           wget -c https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # 3. Download the GTK plugin (essential for GTK4/Adwaita)
+          # 5. Download the GTK plugin (essential for GTK4/Adwaita)
           wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
           chmod +x linuxdeploy-plugin-gtk.sh
 
-          # 4. Run the bundler
+          # 6. Run the bundler
           # We set DEPLOY_GTK_VERSION=4 to tell it we are using GTK4
           export DEPLOY_GTK_VERSION=4
           ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin gtk --output appimage \
