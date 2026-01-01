@@ -33,7 +33,7 @@ jobs:
           chmod +x linuxdeploy-x86_64.AppImage
 
           # 3. Download the GTK plugin (essential for GTK4/Adwaita)
-          wget wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+          wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
           chmod +x linuxdeploy-plugin-gtk.sh
 
           # 4. Run the bundler
