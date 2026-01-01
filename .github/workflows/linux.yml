@@ -59,7 +59,7 @@ jobs:
           ./linuxdeploy-x86_64.AppImage --appdir AppDir \
             --executable AppDir/usr/bin/MassCombatDecider \
             --desktop-file AppDir/MassCombatDecider.desktop \
-            --icon-filename= AppDir/appicon.svg \
+            --icon-filename AppDir/appicon.svg \
             --plugin gtk --output appimage
 
           # Rename it for easier finding
