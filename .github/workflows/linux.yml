@@ -30,7 +30,8 @@ jobs:
 
           # 2. CREATE ICON FIRST (Root of AppDir)
           # We use a standard name that we will also put in the desktop file
-          cp /usr/share/icons/Adwaita/scalable/devices/computer.svg AppDir/appicon.svg
+          ls /usr/share/icons/Adwaita/scalable/devices
+          cp /usr/share/icons/Adwaita/scalable/devices/computer-symbolic.svg AppDir/appicon.svg
 
 
           # 4. Download linuxdeploy (the tool that makes the AppImage)
