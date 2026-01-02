@@ -51,7 +51,7 @@ jobs:
             --output appimage
 
           # The asterisk (*) is used because linuxdeploy adds timestamps/arch info
-          mv Mass_Combat_Decider*.AppImage MassCombatDecider-Linux.AppImage
+          mv MassCombatDecider-x86_64.AppImage MassCombatDecider-Linux.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
