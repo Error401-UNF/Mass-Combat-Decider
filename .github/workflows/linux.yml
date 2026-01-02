@@ -36,9 +36,8 @@ jobs:
           wget -c https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
           
-          # Using the AppImage version of the plugin is often more stable than the raw script
-          wget -c https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.sh
-          chmod +x linuxdeploy-plugin-gtk-x86_64.sh
+          wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+          chmod +x linuxdeploy-plugin-gtk.sh
 
           # 4. Run the bundler
           export DEPLOY_GTK_VERSION=4
