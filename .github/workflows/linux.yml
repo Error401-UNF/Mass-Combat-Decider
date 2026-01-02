@@ -28,30 +28,30 @@ jobs:
           cp target/release/MassCombatDecider AppDir/usr/bin/
           strip AppDir/usr/bin/MassCombatDecider
 
-          # 2. CREATE ICON FIRST (Root of AppDir)
-          # We use a standard name that we will also put in the desktop file
-          ls /usr/share/icons/Adwaita/scalable/devices
-          cp /usr/share/icons/Adwaita/scalable/devices/computer-symbolic.svg AppDir/appicon.svg
+          # 2. Setup the Icon with the CORRECT name
+          # linuxdeploy expects the icon name to match the binary name for --create-desktop-file
+          cp /usr/share/icons/Adwaita/scalable/devices/computer-symbolic.svg AppDir/MassCombatDecider.svg
 
-
-          # 4. Download linuxdeploy (the tool that makes the AppImage)
+          # 3. Download tools
           wget -c https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
+          
+          # Using the AppImage version of the plugin is often more stable than the raw script
+          wget -c https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.sh
+          chmod +x linuxdeploy-plugin-gtk-x86_64.sh
 
-          # 5. Download the GTK plugin (essential for GTK4/Adwaita)
-          wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
-          chmod +x linuxdeploy-plugin-gtk.sh
-
-          # 6. Run the bundler
-          # We set DEPLOY_GTK_VERSION=4 to tell it we are using GTK4
+          # 4. Run the bundler
           export DEPLOY_GTK_VERSION=4
+          
+          # We manually define the desktop file info to prevent the tool from guessing wrong
           ./linuxdeploy-x86_64.AppImage --appdir AppDir \
             --executable AppDir/usr/bin/MassCombatDecider \
+            -i AppDir/MassCombatDecider.svg \
             --create-desktop-file \
-            -i AppDir/appicon.svg \
-            --plugin gtk --output appimage
+            --plugin gtk \
+            --output appimage
 
-          # Rename it for easier finding
+          # The asterisk (*) is used because linuxdeploy adds timestamps/arch info
           mv Mass_Combat_Decider*.AppImage MassCombatDecider-Linux.AppImage
 
       - name: Upload Artifact
