@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
+use std::os;
 use std::path::PathBuf;
 
 // Represents the data structure for a monster.
@@ -48,8 +49,16 @@ pub fn check_for_monsters() -> bool {
 
 pub fn get_base_path() -> io::Result<PathBuf> {
     let mut path = std::env::home_dir().unwrap();
-    path.push(".config"); // into config
-    path.push("MonsterMan"); // into monster manager
+
+    if cfg!(target_os = "windows") {
+        // Windows path: C:\Users\Name\Documents\MonsterMan
+        path.push("Documents");
+    } else {
+        // Unix path: /home/name/.config/MonsterMan
+        path.push(".config");
+    }
+
+    path.push("MonsterMan");
     Ok(path)
 }
 
