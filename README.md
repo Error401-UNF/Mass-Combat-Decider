@@ -17,6 +17,14 @@ In attack generator, Add is save and no bonus notes
 
 Advantage/disadvantage modifier
 
+Monster Folders
+
+
+# Known bugs
+You cant uh move the starting window in a non-hyprland window manager
+
+# Fixed bugs
+nothing
 
 # Finished
 Add max hp to the flow box

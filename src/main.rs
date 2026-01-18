@@ -35,6 +35,7 @@ fn first_start(app: &AdwApplication) { // Use AdwApplication
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
+        .modal(true)
         .build();
     ui_manager::switch_to_first_time(&app, &window);
 }
@@ -46,6 +47,7 @@ fn monster_list(app: &AdwApplication) { // Use AdwApplication
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
+        .modal(true)
         .build();
     ui_manager::switch_to_monster_list(&app, &window);
 }

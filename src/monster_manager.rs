@@ -39,8 +39,7 @@ pub struct Attack {
 /// This is used to determine if a new user should be shown the welcome screen.
 pub fn check_for_monsters() -> bool {
     // Define the path to the "Monsters" directory relative to the executable
-    let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
-    path.pop(); // Go up one level from the executable to the target/debug or target/release directory
+    let mut path = get_base_path().unwrap();// Go up one level from the executable to the target/debug or target/release directory
     path.push("Monsters"); // Append the "Monsters" directory
 
     println!("Checking for monsters directory at: {:?}", path);
@@ -48,8 +47,9 @@ pub fn check_for_monsters() -> bool {
 }
 
 pub fn get_base_path() -> io::Result<PathBuf> {
-    let mut path = std::env::current_exe()?;
-    path.pop(); // Go up one level to not refer to the exe file itself
+    let mut path = std::env::home_dir().unwrap();
+    path.push(".config"); // into config
+    path.push("MonsterMan"); // into monster manager
     Ok(path)
 }
 
@@ -57,7 +57,8 @@ pub fn get_base_path() -> io::Result<PathBuf> {
 /// Saves a monster to a JSON file.
 pub fn save_monster(monster: Monster) -> io::Result<()> {
     // Ensure the Monsters directory exists.
-    let mut path = get_monsters_dir_path()?;
+    let mut path = get_base_path()?;
+    path.push("Monsters");
     if !path.exists() {
         fs::create_dir(&path)?;
     }
@@ -75,10 +76,11 @@ pub fn save_monster(monster: Monster) -> io::Result<()> {
 
 /// Reads a monster's data from a JSON file by name.
 pub fn read_monster(monster_name: &str) -> Option<Monster> {
-    let mut path = match get_monsters_dir_path() {
+    let mut path = match get_base_path() {
         Ok(p) => p,
         Err(_) => return None,
     };
+    path.push("Monsters");
     path.push(format!("{}.json", monster_name));
 
     let mut file = match File::open(&path) {
@@ -102,10 +104,11 @@ pub fn read_monster(monster_name: &str) -> Option<Monster> {
 
 /// Reads all monsters from the "Monsters" directory.
 pub fn read_all_monsters() -> Vec<Monster> {
-    let path = match get_monsters_dir_path() {
+    let mut path = match get_base_path() {
         Ok(p) => p,
         Err(_) => return Vec::new(),
     };
+    path.push("Monsters");
 
     let mut monsters = Vec::new();
     if let Ok(entries) = fs::read_dir(path) {
@@ -125,7 +128,8 @@ pub fn read_all_monsters() -> Vec<Monster> {
 
 /// Deletes a monster's JSON file.
 pub fn delete_monster(monster_name: &str) -> io::Result<()> {
-    let mut path = get_monsters_dir_path()?;
+    let mut path = get_base_path()?;
+    path.push("Monsters");
     path.push(format!("{}.json", monster_name));
     fs::remove_file(&path)?;
     println!("Deleted monster file: {:?}", path);
@@ -156,12 +160,4 @@ pub fn delete_attack_from_monster(monster_name: &str, attack_name: &str) -> io::
     } else {
         Err(io::Error::new(io::ErrorKind::NotFound, "Attack not found"))
     }
-}
-
-/// Helper function to get the path to the "Monsters" directory.
-fn get_monsters_dir_path() -> io::Result<PathBuf> {
-    let mut path = std::env::current_exe()?;
-    path.pop(); // Go up one level
-    path.push("Monsters");
-    Ok(path)
 }
