@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use rand::Rng;
 use chrono; 
 
-use crate::monster_manager::get_base_path;
+use crate::monster_manager::{Attack, get_base_path};
 
 use super::monster_manager::{self, Monster};
 use super::ui_manager; // Import ui_manager to switch back to monster list
@@ -841,13 +841,26 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
                 .spacing(6)
                 .build();
 
-            let attack_details = format!(
+            let save_dc = 8 + get_ability_mod(combatant, attack) + combatant.monster_template.pb;
+
+            let attack_details = if ! attack.saving_throw {
+                format!(
                 "• {} ({}{}, {}/turn)",
                 attack.attack_name,
                 attack.num_dice,
                 attack.dice_used,
                 attack.num_attacks,
-            );
+                )
+            } else {
+                format!(
+                "• {} ({}{}, DC {})",
+                attack.attack_name,
+                attack.num_dice,
+                attack.dice_used,
+                save_dc,
+                )
+            };
+
             let attack_label = Label::builder()
                 .label(&attack_details)
                 .halign(Align::Start)
@@ -873,38 +886,44 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
 
                 if let Ok(buffer) = console_buffer_clone.try_borrow_mut() {
                     let mut iter = buffer.end_iter();
-                    
-                    buffer.insert(&mut iter, &format!("{}: {} started an attack using {} {} times.\n",
-                        chrono::Local::now().format("%H:%M:%S"), creature_name, attack_name, attacks_per_turn));
 
-                    for i in 0..attacks_per_turn {
-                        // Calculate To Hit
-                        let mut rng = rand::rngs::ThreadRng::default();
-                        let d20_roll = rng.random_range(1..=20);
-                        let ability_mod = match attack_clone.ability_used.as_str() {
-                            "str" => combatant_clone.monster_template.str_mod,
-                            "dex" => combatant_clone.monster_template.dex_mod,
-                            "con" => combatant_clone.monster_template.con_mod,
-                            "int" => combatant_clone.monster_template.int_mod,
-                            "wis" => combatant_clone.monster_template.wis_mod,
-                            "cha" => combatant_clone.monster_template.cha_mod,
-                            _ => 0,
-                        };
-                        let to_hit = d20_roll + ability_mod + combatant_clone.monster_template.pb;
+                    if ! attack_clone.saving_throw {
+                        buffer.insert(&mut iter, &format!("{}: {} started an attack using {} {} times.\n",
+                            chrono::Local::now().format("%H:%M:%S"), creature_name, attack_name, attacks_per_turn));
 
-                        // Check for a natural 20
-                        let crit_message = if d20_roll == 20 { " -> CRITICAL HIT!" } else { "" };
+                        for i in 0..attacks_per_turn {
+                            // Calculate To Hit
+                            let mut rng = rand::rngs::ThreadRng::default();
+                            let d20_roll = rng.random_range(1..=20);
+                            let ability_mod = get_ability_mod(&combatant_clone, &attack_clone);
+                            let to_hit = d20_roll + ability_mod + combatant_clone.monster_template.pb;
 
-                        // Calculate Damage using the new helper function
+                            // Check for a natural 20
+                            let crit_message = if d20_roll == 20 { " -> CRITICAL HIT!" } else { "" };
+
+                            // Calculate Damage using the new helper function
+                            let (_total_damage, damage_output) = calculate_damage(
+                                if d20_roll == 20 {attack_clone.num_dice*2} else {attack_clone.num_dice},
+                                &attack_clone.dice_used,
+                                ability_mod,
+                            );
+
+                            buffer.insert(&mut iter, &format!("  Attack {}: To hit: {} + {} (Total Mod) = {}{}; Damage: {}\n", 
+                                i + 1, d20_roll, ability_mod + combatant_clone.monster_template.pb, to_hit, crit_message, damage_output));
+                        }
+                    } else {
+                        buffer.insert(&mut iter, &format!("{}: {} started an attack using {}",
+                            chrono::Local::now().format("%H:%M:%S"), creature_name, attack_name));
+
                         let (_total_damage, damage_output) = calculate_damage(
                             attack_clone.num_dice,
                             &attack_clone.dice_used,
-                            ability_mod,
+                            0,
                         );
-
-                        buffer.insert(&mut iter, &format!("  Attack {}: To hit: {} + {} (Total Mod) = {}{}; Damage: {}\n", 
-                            i + 1, d20_roll, ability_mod + combatant_clone.monster_template.pb, to_hit, crit_message, damage_output));
+                        buffer.insert(&mut iter, &format!("  Damage: {}\n", damage_output));
                     }
+                    
+                    
                     
                     // --- Updated console limiting logic ---
                     let line_count = buffer.line_count();
@@ -995,4 +1014,17 @@ pub fn check_for_simulation() -> bool {
     //println!("Checking for active simulation at: {:?}", path);
     path.exists()
 
+}
+
+fn get_ability_mod(combatant: &Combatant, attack: &Attack) -> i32 {
+    let ability_mod = match attack.ability_used.as_str() {
+        "str" => combatant.monster_template.str_mod,
+        "dex" => combatant.monster_template.dex_mod,
+        "con" => combatant.monster_template.con_mod,
+        "int" => combatant.monster_template.int_mod,
+        "wis" => combatant.monster_template.wis_mod,
+        "cha" => combatant.monster_template.cha_mod,
+        _ => 0,
+    };
+    ability_mod
 }

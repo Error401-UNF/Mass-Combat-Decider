@@ -13,18 +13,17 @@ Add bloodied tag
 
 Add condition dropdown with "other" suport
 
-In attack generator, Add is save and no bonus notes
-
 Advantage/disadvantage modifier
 
 Monster Folders
 
+Resistance tags (general)
 
 # Known bugs
 You cant uh move the starting window in a non-hyprland window manager
 
 # Fixed bugs
-nothing
+crits are now calculated correctly 
 
 # Finished
 Add max hp to the flow box
@@ -36,3 +35,5 @@ Sorted monsters by name alphabetically
 Add Simulation Save function
 
 better monster editer (you can like actually edit your monsters stats if you fuck them up now)
+
+In attack generator, Add is save and no bonus notes

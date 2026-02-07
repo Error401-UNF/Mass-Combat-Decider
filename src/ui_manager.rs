@@ -5,7 +5,7 @@
 
 use gtk::{
     prelude::*, DropDown, Entry, Label, ListBox, Orientation, ScrolledWindow, StringList,
-    StringObject, pango, Grid,
+    StringObject, pango, Grid, CheckButton
 };
 use gtk::{Button, Align, Box};
 use libadwaita::{prelude::*,};
@@ -806,6 +806,17 @@ fn create_text_label_entry_pair(label_text: &str, text: &str) -> (Label, Entry) 
     (label, entry)
 }
 
+
+fn create_label_checkbox_pair(label_text: &str) -> (Label, CheckButton) {
+    let label = Label::builder()
+        .label(label_text)
+        .halign(Align::Start)
+        .build();
+
+    let entry = CheckButton::new();
+
+    (label, entry)
+}
 // Helper function to create a labeled DropDown widget pair.
 fn create_label_dropdown_pair(label_text: &str, items: &[&str]) -> (Label, DropDown) {
     let label = Label::builder()
@@ -859,6 +870,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     let (dice_used_label, dice_used_dropdown) = create_label_dropdown_pair("Dice Used:", &["d4", "d6", "d8", "d10", "d12"]);
     let (num_dice_label, num_dice_entry) = create_label_entry_pair("Number of Dice:", "e.g., 2");
     let (num_attacks_label, num_attacks_entry) = create_label_entry_pair("Attacks per Turn:", "e.g., 1");
+    let (saving_throw_label, saving_throw_checkbox) = create_label_checkbox_pair("Is this a saving throw?");
     
     input_grid.attach(&attack_name_label, 0, 0, 1, 1);
     input_grid.attach_next_to(&attack_name_entry, Some(&attack_name_label), gtk::PositionType::Right, 1, 1);
@@ -870,6 +882,8 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     input_grid.attach_next_to(&num_dice_entry, Some(&num_dice_label), gtk::PositionType::Right, 1, 1);
     input_grid.attach(&num_attacks_label, 0, 4, 1, 1);
     input_grid.attach_next_to(&num_attacks_entry, Some(&num_attacks_label), gtk::PositionType::Right, 1, 1);
+    input_grid.attach(&saving_throw_label, 0, 5, 1, 1);
+    input_grid.attach_next_to(&saving_throw_checkbox, Some(&saving_throw_label), gtk::PositionType::Right, 1, 1);
     
     let error_label = Label::builder()
         .label("")
@@ -901,6 +915,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     let dice_used_dropdown_clone = dice_used_dropdown.clone();
     let num_dice_entry_clone = num_dice_entry.clone();
     let num_attacks_entry_clone = num_attacks_entry.clone();
+    let saving_throw_checkbox_clone = saving_throw_checkbox.clone();
 
     save_button.connect_clicked(move |_| {
         error_label_clone.set_text("");
@@ -934,12 +949,15 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
             return;
         }
 
+        let saving_throw = saving_throw_checkbox_clone.is_active();
+
         let new_attack = monster_manager::Attack {
             attack_name,
             ability_used,
             dice_used,
             num_dice,
             num_attacks,
+            saving_throw,
         };
 
         if let Err(e) = monster_manager::add_attack_to_monster(&monster_name_clone, new_attack) {

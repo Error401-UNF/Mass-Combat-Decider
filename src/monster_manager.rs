@@ -6,7 +6,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::os;
 use std::path::PathBuf;
 
 // Represents the data structure for a monster.
@@ -34,6 +33,7 @@ pub struct Attack {
     pub dice_used: String,
     pub num_dice: i32,
     pub num_attacks: i32,
+    pub saving_throw: bool,
 }
 
 /// Checks if the "Monsters" directory exists.
