@@ -785,13 +785,13 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
             let d20_roll = rng.random_range(1..=20);
             
             let modifier = match stat_name_clone.to_lowercase().as_str() {
-                "str" => combatant_clone.monster_template.str_mod,
-                "dex" => combatant_clone.monster_template.dex_mod,
-                "con" => combatant_clone.monster_template.con_mod,
-                "int" => combatant_clone.monster_template.int_mod,
-                "wis" => combatant_clone.monster_template.wis_mod,
-                "cha" => combatant_clone.monster_template.cha_mod,
-                _ => 0,
+                "str" => combatant_clone.monster_template.mods[0],
+                "dex" => combatant_clone.monster_template.mods[1],
+                "con" => combatant_clone.monster_template.mods[2],
+                "int" => combatant_clone.monster_template.mods[3],
+                "wis" => combatant_clone.monster_template.mods[4],
+                "cha" => combatant_clone.monster_template.mods[5],
+                    _ => 0,
             };
             
             let total = d20_roll + modifier;
@@ -1018,12 +1018,12 @@ pub fn check_for_simulation() -> bool {
 
 fn get_ability_mod(combatant: &Combatant, attack: &Attack) -> i32 {
     let ability_mod = match attack.ability_used.as_str() {
-        "str" => combatant.monster_template.str_mod,
-        "dex" => combatant.monster_template.dex_mod,
-        "con" => combatant.monster_template.con_mod,
-        "int" => combatant.monster_template.int_mod,
-        "wis" => combatant.monster_template.wis_mod,
-        "cha" => combatant.monster_template.cha_mod,
+        "str" => combatant.monster_template.mods[0],
+        "dex" => combatant.monster_template.mods[1],
+        "con" => combatant.monster_template.mods[2],
+        "int" => combatant.monster_template.mods[3],
+        "wis" => combatant.monster_template.mods[4],
+        "cha" => combatant.monster_template.mods[5],
         _ => 0,
     };
     ability_mod

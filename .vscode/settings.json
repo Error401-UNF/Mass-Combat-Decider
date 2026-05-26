@@ -1,4 +1,4 @@
 {
-    "workbench.colorTheme": "Default Dark+",
+    "workbench.colorTheme": "Dark+",
     "rust-analyzer.server.path": "rust-analyzer",
 }

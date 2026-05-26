@@ -16,12 +16,15 @@ pub struct Monster {
     pub ac: i32,
     pub exp: i32,
     pub pb: i32,
-    pub str_mod: i32,
-    pub dex_mod: i32,
-    pub con_mod: i32,
-    pub int_mod: i32,
-    pub wis_mod: i32,
-    pub cha_mod: i32,
+    pub hitdie: String,
+    // mod order: str, dex, con, int, wis, cha
+    pub mods: [i32;6],
+    // save order: str, dex, con, int, wis, cha
+    pub saves: [bool;6],
+    pub vulnerabilities: Vec<String>,
+    pub restistances: Vec<String>,
+    pub immunities: Vec<String>,
+    pub abilities: String,
     pub attacks: Vec<Attack>,
 }
 
