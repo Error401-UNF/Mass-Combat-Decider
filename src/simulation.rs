@@ -4,6 +4,7 @@ use gtk::{prelude::*, Adjustment, Align, Box, Button, FlowBox, Frame, Label, Lis
 use libadwaita::{Application as AdwApplication, Window as AdwWindow};
 use libadwaita::prelude::AdwWindowExt;
 use std::collections::HashMap;
+use std::fmt::format;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
@@ -666,7 +667,6 @@ fn calculate_damage(num_dice: i32, dice_used: &str, ability_mod: i32) -> (i32, S
 /// Helper function to create a single monster card for the simulation view.
 fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationState) -> Frame {
     let card_frame = Frame::builder()
-        .label(&combatant.instance_name)
         .margin_top(6).margin_bottom(6).margin_start(6).margin_end(6)
         .build();
     
@@ -726,7 +726,7 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
         .build();
     
     let hp_label = Label::new(Some("HP:"));
-    let hp_adj = Adjustment::new(combatant.current_hp as f64, 0.0, 9999.0, 1.0, 10.0, 0.0);
+    let hp_adj = Adjustment::new(combatant.current_hp as f64, 0.0, combatant.max_hp.into(), 1.0, 10.0, 0.0);
     let hp_spin_button = SpinButton::builder()
         .adjustment(&hp_adj)
         .numeric(true)
@@ -746,12 +746,43 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
     });
     
     let ac_label = Label::new(Some(&format!("AC: {}", combatant.monster_template.ac)));
+    let speed_label = Label::new(Some(&format!("Speed: {}", combatant.monster_template.speed)));
 
     stats_box.append(&hp_label);
     stats_box.append(&hp_spin_button);
     stats_box.append(&max_hp_label);
     stats_box.append(&ac_label);
+    stats_box.append(&speed_label);
     vbox.append(&stats_box);
+    
+    // --- damage effects section ---
+    if combatant.monster_template.vulnerabilities.len() != 0{
+        let mut label_text = String::new();
+        label_text += "<b>Damage Vulnerabilities:</b>";
+        for i in &combatant.monster_template.vulnerabilities{
+            label_text += " ";
+            label_text += i;
+            label_text += ",";
+        }
+        label_text.pop(); // remove the last comma
+
+        let vuln_label = Label::builder()
+            .label(label_text)
+            .use_markup(true)
+            .halign(Align::Start)
+            .margin_top(6)
+            .build();
+        vbox.append(&vuln_label);
+    }
+    // --- Abilities Box ---
+
+    let abilities_text = Label::builder()
+        .label(format!("<b>Abilities</b>:\n{}", combatant.monster_template.abilities))
+        .use_markup(true)
+        .halign(Align::Start)
+        .build();
+    abilities_text.set_wrap(true);
+    vbox.append(&abilities_text);
 
     // --- Saves Section ---
     let saves_label = Label::builder()
@@ -769,6 +800,10 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
     
     let stats = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
     for stat_name in stats.iter() {
+        let stat_vbox = Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(3)
+            .build();
         let save_button = Button::builder()
             .label(*stat_name)
             .build();
@@ -777,33 +812,51 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
         let console_buffer_clone = Rc::clone(&simulation_state.console_buffer);
         let console_text_view_clone = simulation_state.console_text_view.clone();
         
+        
         // Clone the stat_name string to move it into the closure, fixing the lifetime issue.
         let stat_name_clone = stat_name.to_string();
+
+        let mon = combatant_clone.monster_template.clone();
+            
+        let modifier = match stat_name_clone.to_lowercase().as_str() {
+            "str" => mon.mods[0],
+            "dex" => mon.mods[1],
+            "con" => mon.mods[2],
+            "int" => mon.mods[3],
+            "wis" => mon.mods[4],
+            "cha" => mon.mods[5],
+                _ => 0,
+        };
+
+        let save_mod_label = Label::builder()
+            .label(format!("{}: {}",stat_name_clone, modifier))
+            .build();
 
         save_button.connect_clicked(move |_| {
             let mut rng = rand::rngs::ThreadRng::default();
             let d20_roll = rng.random_range(1..=20);
-            
-            let modifier = match stat_name_clone.to_lowercase().as_str() {
-                "str" => combatant_clone.monster_template.mods[0],
-                "dex" => combatant_clone.monster_template.mods[1],
-                "con" => combatant_clone.monster_template.mods[2],
-                "int" => combatant_clone.monster_template.mods[3],
-                "wis" => combatant_clone.monster_template.mods[4],
-                "cha" => combatant_clone.monster_template.mods[5],
+
+            let save_bonus = match stat_name_clone.to_lowercase().as_str() {
+                "str" => mon.pb*mon.saves[0] as i32,
+                "dex" => mon.pb*mon.saves[1] as i32,
+                "con" => mon.pb*mon.saves[2] as i32,
+                "int" => mon.pb*mon.saves[3] as i32,
+                "wis" => mon.pb*mon.saves[4] as i32,
+                "cha" => mon.pb*mon.saves[5] as i32,
                     _ => 0,
             };
             
-            let total = d20_roll + modifier;
+            let total = d20_roll + modifier + save_bonus;
             
             if let Ok(buffer) = console_buffer_clone.try_borrow_mut() {
                 let mut iter = buffer.end_iter();
-                let message = format!("{}: {} rolled a {} Save: {} (1d20) + {} (Mod) = {}\n",
+                let message = format!("{}: {} rolled a {} Save: {} (1d20) + {} (Mod) + {} (prof) = {}\n",
                     chrono::Local::now().format("%H:%M:%S"),
                     combatant_clone.instance_name,
                     stat_name_clone,
                     d20_roll,
                     modifier,
+                    save_bonus,
                     total
                 );
                 buffer.insert(&mut iter, &message);
@@ -821,7 +874,10 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
             }
         });
         
-        saves_box.append(&save_button);
+        stat_vbox.append(&save_mod_label);
+        stat_vbox.append(&save_button);
+
+        saves_box.append(&stat_vbox);
     }
     vbox.append(&saves_box);
 

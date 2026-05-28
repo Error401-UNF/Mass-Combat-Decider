@@ -16,6 +16,7 @@ pub struct Monster {
     pub ac: i32,
     pub exp: i32,
     pub pb: i32,
+    pub speed: i32,
     pub hitdie: String,
     // mod order: str, dex, con, int, wis, cha
     pub mods: [i32;6],

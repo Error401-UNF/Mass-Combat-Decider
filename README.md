@@ -17,15 +17,20 @@ Advantage/disadvantage modifier
 
 Monster Folders
 
-Resistance tags (general)
+add other support for resistances
+
 
 # Known bugs
 You cant uh move the starting window in a non-hyprland window manager
+
+Save simulation broke somehow
 
 # Fixed bugs
 crits are now calculated correctly 
 
 # Finished
+Resistance tags (general)
+
 Add max hp to the flow box
 
 Replace Some dropdowns in monster creation menu with textboxes (did all)

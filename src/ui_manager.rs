@@ -55,12 +55,22 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     // get stuff for grids
     let (monster_name_label, monster_name_entry) = create_label_entry_pair("Monster Name:", "Enter name...");
     let (hp_label, hp_entry) = create_label_entry_pair("HP:", "Enter hp...");
-    let (ac_label, ac_entry) = create_label_entry_pair("AC:", "Enter ac...");
+    let (ac_label, ac_entry) = create_label_entry_pair("AC:", "ac...");
+    let (speed_label, speed_entry) = create_label_entry_pair("Speed:", "speed...");
     let (exp_label, exp_entry) = create_label_entry_pair("EXP:", "Enter xp...");
     let (pb_label, pb_entry) = create_label_entry_pair("PB:", "Enter pb...");
     let (die_label, die_dropdown) = create_label_dropdown_pair("Die:", &["d4","d6","d8","d10","d12","d20"]);
 
+    let ac_speed_block = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .build();
 
+    ac_entry.set_max_width_chars(3);
+    speed_entry.set_max_width_chars(7);
+    ac_speed_block.append(&ac_entry);
+    ac_speed_block.append(&speed_label);
+    ac_speed_block.append(&speed_entry);
     // make the grid. 3 col 2 rows
     // top row
     top_grid.attach(&monster_name_label, 0, 0, 1, 1);
@@ -68,7 +78,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     top_grid.attach(&hp_label, 2, 0, 1, 1);
     top_grid.attach(&hp_entry, 3, 0, 1, 1);
     top_grid.attach(&ac_label, 4, 0, 1, 1);
-    top_grid.attach(&ac_entry, 5, 0, 1, 1);
+    top_grid.attach(&ac_speed_block, 5, 0, 1, 1);
     // bottom row
     top_grid.attach(&exp_label, 0, 1, 1, 1);
     top_grid.attach(&exp_entry, 1, 1, 1, 1);
@@ -456,6 +466,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     let monster_name_entry_clone = monster_name_entry.clone();
     let hp_entry_clone = hp_entry.clone();
     let ac_entry_clone = ac_entry.clone();
+    let speed_entry_clone = speed_entry.clone();
     let exp_entry_clone = exp_entry.clone();
     let pb_entry_clone = pb_entry.clone();
     let die_dropdown_clone = die_dropdown.clone();
@@ -498,7 +509,8 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
         if name.trim().is_empty() { return; }
 
         let hp = parse_int_entry(&hp_entry_clone, "HP");
-        let ac = parse_int_entry(&ac_entry_clone, "AC");        
+        let ac = parse_int_entry(&ac_entry_clone, "AC");
+        let speed= parse_int_entry(&speed_entry_clone, "Speed");
         let exp = parse_int_entry(&exp_entry_clone, "EXP");
         let pb = parse_int_entry(&pb_entry_clone, "Proficiency Bonus");
         let str_mod = parse_int_entry(&str_entry_clone, "Strength Mod");
@@ -526,6 +538,7 @@ pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             ac,
             exp,
             pb,
+            speed,
             hitdie,
             mods,
             saves,
@@ -596,13 +609,23 @@ pub fn edit_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     let (monster_name_label, monster_name_entry) = create_text_label_entry_pair("Monster Name:", &format!("{}", monster.name));
     let (hp_label, hp_entry) = create_text_label_entry_pair("HP:", &format!("{}", monster.hp));
     let (ac_label, ac_entry) = create_text_label_entry_pair("AC:", &format!("{}", monster.ac));
+    let (speed_label, speed_entry) = create_text_label_entry_pair("Speed:", &format!("{}", monster.speed));
     let (exp_label, exp_entry) = create_text_label_entry_pair("EXP:", &format!("{}", monster.exp));
     let (pb_label, pb_entry) = create_text_label_entry_pair("PB:", &format!("{}", monster.pb));
     let dice_list = ["d4","d6","d8","d10","d12","d20"];
     let location = dice_list.iter().position(|x| x==(&monster.hitdie.as_str()));
     let (die_label, die_dropdown) = create_set_label_dropdown_pair("Die:", &dice_list.clone(), location.unwrap() as u32);
 
+    let ac_speed_block = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .build();
 
+    ac_entry.set_max_width_chars(3);
+    speed_entry.set_max_width_chars(7);
+    ac_speed_block.append(&ac_entry);
+    ac_speed_block.append(&speed_label);
+    ac_speed_block.append(&speed_entry);
     // make the grid. 3 col 2 rows
     // top row
     top_grid.attach(&monster_name_label, 0, 0, 1, 1);
@@ -610,7 +633,7 @@ pub fn edit_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     top_grid.attach(&hp_label, 2, 0, 1, 1);
     top_grid.attach(&hp_entry, 3, 0, 1, 1);
     top_grid.attach(&ac_label, 4, 0, 1, 1);
-    top_grid.attach(&ac_entry, 5, 0, 1, 1);
+    top_grid.attach(&ac_speed_block, 5, 0, 1, 1);
     // bottom row
     top_grid.attach(&exp_label, 0, 1, 1, 1);
     top_grid.attach(&exp_entry, 1, 1, 1, 1);
@@ -1124,6 +1147,7 @@ pub fn edit_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
     let monster_name_entry_clone = monster_name_entry.clone();
     let hp_entry_clone = hp_entry.clone();
     let ac_entry_clone = ac_entry.clone();
+    let speed_entry_clone = speed_entry.clone();
     let exp_entry_clone = exp_entry.clone();
     let pb_entry_clone = pb_entry.clone();
     let die_dropdown_clone = die_dropdown.clone();
@@ -1167,6 +1191,7 @@ pub fn edit_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
 
         let hp = parse_int_entry(&hp_entry_clone, "HP");
         let ac = parse_int_entry(&ac_entry_clone, "AC");        
+        let speed = parse_int_entry(&speed_entry_clone, "Speed");
         let exp = parse_int_entry(&exp_entry_clone, "EXP");
         let pb = parse_int_entry(&pb_entry_clone, "Proficiency Bonus");
         let str_mod = parse_int_entry(&str_entry_clone, "Strength Mod");
@@ -1195,6 +1220,7 @@ pub fn edit_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindo
             exp,
             pb,
             hitdie,
+            speed,
             mods,
             saves,
             vulnerabilities: selected_vulns_clone.borrow().clone(),
@@ -1512,7 +1538,6 @@ fn create_label_entry_checkbox_triplet(label_text: &str, placeholder_text: &str)
 
     (label, entry, check)
 }
-
 fn create_set_label_entry_checkbox_triplet(label_text: &str, starting_text: &str,starting_check: bool) -> (Label, Entry, CheckButton) {
     let label = Label::builder()
         .label(label_text)
@@ -1544,7 +1569,6 @@ fn create_text_label_entry_pair(label_text: &str, text: &str) -> (Label, Entry) 
 
     (label, entry)
 }
-
 
 fn create_label_checkbox_pair(label_text: &str) -> (Label, CheckButton) {
     let label = Label::builder()
