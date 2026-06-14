@@ -11,44 +11,27 @@
     # System definition
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
-
-    # Dependencies required by the GTK application
     gtkDeps = with pkgs; [ gtk4 libadwaita glib xorg.libX11 ];
 
     # 1. The core Rust package (built with standard rustPlatform)
     massCombatDecider = pkgs.rustPlatform.buildRustPackage {
       pname = "mass-combat-decider";
-      version = "0.1.1";
-      
-      # Use the special 'self' attribute to reference the directory containing flake.nix
+      version = "0.1.3";
       src = self; 
-      
-      # Assuming Cargo.lock is in the same directory as flake.nix
-      cargoLock = { lockFile = ./Cargo.lock; }; 
-
-      # Standard build inputs
+      cargoLock = { lockFile = ./Cargo.lock; };
       nativeBuildInputs = with pkgs; [ pkg-config ];
       buildInputs = gtkDeps;
-      
-      # Name of the executable (derived from the crate name)
       cargoBuildFlags = [ "--bin MassCombatDecider" ];
-  
-      # This tells Nix to remove debug symbols from the final binary
       dontStrip = false;
     };
 
     # 2. The final bundled package (creates the AppImage-like wrapper)
     bundledApp = pkgs.stdenv.mkDerivation {
       pname = "mass-combat-decider-portable";
-      version = "0.1.1";
-      
+      version = "0.1.3";
       src = massCombatDecider; 
-
-      # Tools needed to create the wrapper MUST be here
       nativeBuildInputs = [ pkgs.makeWrapper ]; 
       buildInputs = gtkDeps;
-
-      # We change installPhase to a phases-conscious block or fix the hook usage
       installPhase = ''
         runHook preInstall
 
@@ -65,22 +48,10 @@
         runHook postInstall
       '';
     };
-
   in
   {
-    # ---------------------------------------------------------
-    # FIX: Add defaultPackage attribute for nix-appimage bundler
-    # ---------------------------------------------------------
     defaultPackage.${system} = bundledApp;
-    
-    # ---------------------------------------------------------
-    # Outputs: Packages (Bundled Linux App)
-    # ---------------------------------------------------------
     packages.${system}.default = bundledApp;
-
-    # ---------------------------------------------------------
-    # Outputs: DevShell
-    # ---------------------------------------------------------
     devShells.${system}.default = pkgs.mkShell {
       name = "gtk-rs-development-environment";
 

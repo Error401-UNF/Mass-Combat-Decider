@@ -15,6 +15,22 @@ fn main() {
     let app = AdwApplication::builder() // Use AdwApplication
         .application_id(APP_ID)
         .build();
+    let _ = gtk::init();
+    let provider = gtk::CssProvider::new();
+    provider.load_from_data("
+        .bloodied {
+            /*background-color: rgba(239, 68, 68, 0.25);  Faint red background */
+            border: 1px solid rgb(220, 38, 38);        /* Striking red border */
+        }
+    ");
+    // Use the gdk module re-exported inside the gtk crate
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
     
     // Check for monsters
     if !monster_manager::check_for_monsters() {

@@ -1,10 +1,9 @@
 // simulation.rs
 
-use gtk::{prelude::*, Adjustment, Align, Box, Button, FlowBox, Frame, Label, ListBox, Orientation, ScrolledWindow, SpinButton, TextView, TextBuffer};
+use gtk::{Adjustment, Align, Box, Button, DropDown, FlowBox, Frame, Label, ListBox, Orientation, ScrolledWindow, SpinButton, StringObject, TextBuffer, TextView, prelude::*};
 use libadwaita::{Application as AdwApplication, Window as AdwWindow};
 use libadwaita::prelude::AdwWindowExt;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
@@ -30,11 +29,12 @@ struct Combatant {
 /// A struct to hold the shared state of the simulation.
 #[derive(Clone,Debug)]
 pub struct SimulationState {
-    combatants: Rc<RefCell<Vec<Combatant>>>,
-    killed_monsters: Rc<RefCell<Vec<Combatant>>>,
-    flow_box: FlowBox,
-    console_buffer: Rc<RefCell<TextBuffer>>,
-    console_text_view: TextView,
+    pub combatants: Rc<RefCell<Vec<Combatant>>>,
+    pub killed_monsters: Rc<RefCell<Vec<Combatant>>>,
+    pub flow_box: FlowBox,
+    pub console_buffer: Rc<RefCell<gtk::TextBuffer>>,
+    pub console_text_view: gtk::TextView,
+    pub roll_mode_dropdown: gtk::DropDown, // <-- ADD THIS LINE
 }
 #[derive(Clone,Debug, serde::Serialize, serde::Deserialize)]
 pub struct StaticSimulationState {
@@ -218,14 +218,39 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
         .hexpand(true) // Make the main_vbox expand horizontally
         .build();
 
-    // Add a title for the simulation view
-    let simulation_title = Label::builder()
-        .label("Live Simulation")
+    // --- Top Title & Round Tracker Row ---
+    let top_row = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(24)
         .halign(Align::Center)
         .margin_bottom(12)
         .build();
-    simulation_title.add_css_class("title-1"); // Use a larger title class
-    main_vbox.append(&simulation_title);
+
+    let simulation_title = Label::builder()
+        .label("Live Simulation")
+        .build();
+    simulation_title.add_css_class("title-1");
+
+    // Round Tracker Widgets
+    let round_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .valign(Align::Center)
+        .build();
+
+    let round_label = Label::new(Some("Round:"));
+    let round_adj = Adjustment::new(1.0, 1.0, 999.0, 1.0, 5.0, 0.0);
+    let round_spin_button = SpinButton::builder()
+        .adjustment(&round_adj)
+        .numeric(true)
+        .build();
+
+    round_box.append(&round_label);
+    round_box.append(&round_spin_button);
+
+    top_row.append(&simulation_title);
+    top_row.append(&round_box);
+    main_vbox.append(&top_row);
 
     // --- Console Output Section ---
     let console_scrolled_window = ScrolledWindow::builder()
@@ -263,95 +288,97 @@ pub fn start_simulation_view(app: &AdwApplication, window: &AdwWindow, selected_
 
     let shared_state = Rc::new(RefCell::new(combatants));
     
-    
+    // --- Roll Mode DropDown Setup ---
+    let mode_options = ["Natural", "Advantage", "Disadvantage"];
+    let string_list = gtk::StringList::new(&mode_options);
+    let roll_mode_dropdown = gtk::DropDown::builder()
+        .model(&string_list)
+        .selected(0) // Default to "Natural"
+        .valign(Align::Center)
+        .build();
+
+    // Now build the simulation state with the dropdown included
     let simulation_state = SimulationState {
         combatants: Rc::clone(&shared_state),
         killed_monsters: Rc::new(RefCell::new(Vec::new())),
         flow_box: flow_box.clone(),
         console_buffer: Rc::clone(&console_buffer),
         console_text_view: console_text_view.clone(),
+        roll_mode_dropdown: roll_mode_dropdown.clone(), // <-- Pass it here
     };
 
-    // check if simulation file exsists if so set simulation state to that
+    // [Keep your existing "check if simulation file exists" code here!]
     if check_for_simulation() {
         let static_sim = get_simulation().unwrap();
         let _ = remove_simulation_file();
         static_sim.replace_with_static(&simulation_state);
     }
 
-
-
-
-    // Populate the FlowBox with cards from the initial combatant list
+    // Populate the FlowBox
     for combatant in shared_state.borrow().iter() {
         let card = create_combatant_card(combatant, &simulation_state);
         simulation_state.flow_box.insert(&card, -1);
     }
-    
-    // --- Buttons Section ---
-    let button_box = Box::builder()
+
+    // --- Bottom Layout: Split Button Action Bar ---
+    let bottom_bar = Box::builder()
         .orientation(Orientation::Horizontal)
-        .spacing(6)
-        .halign(Align::Center)
         .margin_bottom(12)
+        .hexpand(true)
         .build();
-    
-    // Add "See Killed" button
-    let killed_button = Button::builder()
-        .label("See Killed")
-        .build();
-    killed_button.add_css_class("see-killed-action");
-    let app_clone = app.clone();
-    let window_clone_killed = window.clone();
-    let simulation_state_clone = simulation_state.clone();
-    killed_button.connect_clicked(move |_| {
-        show_killed_monsters_menu(&app_clone, &window_clone_killed, simulation_state_clone.clone());
-    });
-    button_box.append(&killed_button);
 
-    // Add Edit Simulation button
-    let edit_button = Button::builder()
-        .label("Edit Simulation")
+    // Left Side Actions Box
+    let left_actions_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(8)
+        .halign(Align::Start)
+        .hexpand(true)
         .build();
+
+    // Edit Simulation button
+    let edit_button = Button::builder().label("Edit Simulation").build();
     edit_button.add_css_class("edit-action");
+    let app_clone = app.clone(); let window_clone_edit = window.clone(); let simulation_state_clone = simulation_state.clone();
+    edit_button.connect_clicked(move |_| { show_edit_simulation_menu(&app_clone, &window_clone_edit, simulation_state_clone.clone()); });
+    left_actions_box.append(&edit_button);
 
-    let app_clone = app.clone();
-    let window_clone_edit = window.clone();
-    let simulation_state_clone = simulation_state.clone();
-    edit_button.connect_clicked(move |_| {
-        show_edit_simulation_menu(&app_clone, &window_clone_edit, simulation_state_clone.clone());
-    });
-    button_box.append(&edit_button);
-
-    // Add Exit Simulation button
-    let exit_button = Button::builder()
-        .label("Exit Simulation")
-        .build();
-    exit_button.add_css_class("destructive-action");
-
-    let app_clone_exit = app.clone();
-    let window_clone_exit = window.clone();
-    exit_button.connect_clicked(move |_| {
-        ui_manager::switch_to_monster_list(&app_clone_exit, &window_clone_exit);
-    });
-    button_box.append(&exit_button);
-
-    // Add Save Simulation button
-    let save_button = Button::builder()
-        .label("Save Simulation")
-        .build();
+    // Save Simulation button
+    let save_button = Button::builder().label("Save Simulation").build();
     save_button.add_css_class("suggested-action");
+    let app_clone_save = app.clone(); let window_clone_save = window.clone(); let simulation_state_clone = simulation_state.clone();
+    save_button.connect_clicked(move |_| { let _ = self::save_simulation(&simulation_state_clone); ui_manager::switch_to_monster_list(&app_clone_save, &window_clone_save); });
+    left_actions_box.append(&save_button);
 
-    let app_clone_save = app.clone();
-    let window_clone_save = window.clone();
-    let simulation_state_clone = simulation_state.clone();
-    save_button.connect_clicked(move |_| {
-        let _ = self::save_simulation(&simulation_state_clone);
-        ui_manager::switch_to_monster_list(&app_clone_save, &window_clone_save);
-    });
-    button_box.append(&save_button);
+    // Exit Simulation button
+    let exit_button = Button::builder().label("Exit Simulation").build();
+    exit_button.add_css_class("destructive-action");
+    let app_clone_exit = app.clone(); let window_clone_exit = window.clone();
+    exit_button.connect_clicked(move |_| { ui_manager::switch_to_monster_list(&app_clone_exit, &window_clone_exit); });
+    left_actions_box.append(&exit_button);
 
-    main_vbox.append(&button_box);
+    // Right Side Actions Box
+    let right_actions_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .halign(Align::End)
+        .build();
+
+    // See Killed button
+    let killed_button = Button::builder().label("See Killed").build();
+    killed_button.add_css_class("see-killed-action");
+    let app_clone = app.clone(); let window_clone_killed = window.clone(); let simulation_state_clone = simulation_state.clone();
+    killed_button.connect_clicked(move |_| { show_killed_monsters_menu(&app_clone, &window_clone_killed, simulation_state_clone.clone()); });
+    
+    // Assemble Right Side
+    right_actions_box.append(&roll_mode_dropdown);
+    right_actions_box.append(&killed_button);
+
+    // Pack both sides into the bottom bar
+    bottom_bar.append(&left_actions_box);
+    bottom_bar.append(&right_actions_box);
+
+    // Assemble Main Layout (Fills screen via vexpand)
+    main_vbox.append(&bottom_bar);
     scrolled_window.set_child(Some(&simulation_state.flow_box));
     main_vbox.append(&scrolled_window);
     window.set_content(Some(&main_vbox));
@@ -663,7 +690,11 @@ fn calculate_damage(num_dice: i32, dice_used: &str, ability_mod: i32) -> (i32, S
     (total_damage, damage_output)
 }
 
-
+pub fn get_dropdown_text(dropdown: &DropDown) -> String{
+    return dropdown.selected_item()
+        .and_then(|obj| obj.downcast_ref::<StringObject>().map(|s_obj| s_obj.string().to_string()))
+        .unwrap_or_default()
+}
 /// Helper function to create a single monster card for the simulation view.
 fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationState) -> Frame {
     let card_frame = Frame::builder()
@@ -734,14 +765,32 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
     let max_hp_label = Label::new(Some(&format!("Max HP: {}",combatant.max_hp)));
 
 
-    // Update the combatant's HP in the shared state when the spin button value changes
+    // Initial check to see if the combatant is already bloodied when UI is generated
+    if combatant.current_hp <= (combatant.max_hp / 2) {
+        card_frame.add_css_class("bloodied");
+    }
+
+    // Update the combatant's HP and UI style when the spin button value changes
     let combatants_clone = Rc::clone(&simulation_state.combatants);
     let combatant_instance_name_clone = combatant.instance_name.clone();
+    let card_frame_clone = card_frame.clone();
+    let max_hp = combatant.max_hp;
+
     hp_spin_button.connect_value_changed(move |btn| {
+        let current_hp = btn.value() as i32;
+        
+        // Update data state
         if let Ok(mut combatants) = combatants_clone.try_borrow_mut() {
             if let Some(c) = combatants.iter_mut().find(|c| c.instance_name == combatant_instance_name_clone) {
-                c.current_hp = btn.value() as i32;
+                c.current_hp = current_hp;
             }
+        }
+
+        // Update UI State (Bloodied logic)
+        if current_hp <= (max_hp / 2) {
+            card_frame_clone.add_css_class("bloodied");
+        } else {
+            card_frame_clone.remove_css_class("bloodied");
         }
     });
     
@@ -831,35 +880,42 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
         let save_mod_label = Label::builder()
             .label(format!("{}: {}",stat_name_clone, modifier))
             .build();
-
+        let save_simulation_state_clone = simulation_state.clone();
         save_button.connect_clicked(move |_| {
+            let mode = get_dropdown_text(&save_simulation_state_clone.roll_mode_dropdown);
             let mut rng = rand::rngs::ThreadRng::default();
-            let d20_roll = rng.random_range(1..=20);
+            
+            let roll1 = rng.random_range(1..=20);
+            let roll2 = rng.random_range(1..=20);
+
+            let (d20_roll, lost_roll) = match mode.as_str() {
+                "Advantage" => (std::cmp::max(roll1, roll2), Some(std::cmp::min(roll1, roll2))),
+                "Disadvantage" => (std::cmp::min(roll1, roll2), Some(std::cmp::max(roll1, roll2))),
+                _ => (roll1, None),
+            };
 
             let save_bonus = match stat_name_clone.to_lowercase().as_str() {
-                "str" => mon.pb*mon.saves[0] as i32,
-                "dex" => mon.pb*mon.saves[1] as i32,
-                "con" => mon.pb*mon.saves[2] as i32,
-                "int" => mon.pb*mon.saves[3] as i32,
-                "wis" => mon.pb*mon.saves[4] as i32,
-                "cha" => mon.pb*mon.saves[5] as i32,
-                    _ => 0,
+                "str" => mon.pb * mon.saves[0] as i32,
+                "dex" => mon.pb * mon.saves[1] as i32,
+                "con" => mon.pb * mon.saves[2] as i32,
+                "int" => mon.pb * mon.saves[3] as i32,
+                "wis" => mon.pb * mon.saves[4] as i32,
+                "cha" => mon.pb * mon.saves[5] as i32,
+                _ => 0,
             };
             
             let total = d20_roll + modifier + save_bonus;
             
             if let Ok(buffer) = console_buffer_clone.try_borrow_mut() {
-                let mut iter = buffer.end_iter();
-                let message = format!("{}: {} rolled a {} Save: {} (1d20) + {} (Mod) + {} (prof) = {}\n",
-                    chrono::Local::now().format("%H:%M:%S"),
-                    combatant_clone.instance_name,
-                    stat_name_clone,
-                    d20_roll,
-                    modifier,
-                    save_bonus,
-                    total
+                let prefix = format!("{}: {} rolled a {} Save: (", 
+                    chrono::Local::now().format("%H:%M:%S"), 
+                    combatant_clone.instance_name, 
+                    stat_name_clone
                 );
-                buffer.insert(&mut iter, &message);
+                let suffix = format!(") + {} (Mod) + {} (prof) = {}\n", modifier, save_bonus, total);
+                
+                // Call helper to draw text flawlessly
+                append_roll_to_console(&buffer, &prefix, d20_roll, lost_roll, &suffix);
                 
                 let line_count = buffer.line_count();
                 if line_count > 50 {
@@ -934,6 +990,7 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
             let attack_clone = attack.clone();
             let console_buffer_clone = Rc::clone(&simulation_state.console_buffer);
             let console_text_view_clone = simulation_state.console_text_view.clone();
+            let attack_simulation_state_clone = simulation_state.clone();
 
             use_button.connect_clicked(move |_| {
                 let creature_name = combatant_clone.instance_name.clone();
@@ -948,24 +1005,34 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
                             chrono::Local::now().format("%H:%M:%S"), creature_name, attack_name, attacks_per_turn));
 
                         for i in 0..attacks_per_turn {
-                            // Calculate To Hit
+                            let mode = get_dropdown_text(&attack_simulation_state_clone.roll_mode_dropdown);
                             let mut rng = rand::rngs::ThreadRng::default();
-                            let d20_roll = rng.random_range(1..=20);
-                            let ability_mod = get_ability_mod(&combatant_clone, &attack_clone);
-                            let to_hit = d20_roll + ability_mod + combatant_clone.monster_template.pb;
+                            
+                            let roll1 = rng.random_range(1..=20);
+                                let roll2 = rng.random_range(1..=20);
 
-                            // Check for a natural 20
-                            let crit_message = if d20_roll == 20 { " -> CRITICAL HIT!" } else { "" };
+                                let (d20_roll, lost_roll) = match mode.as_str() {
+                                    "Advantage" => (std::cmp::max(roll1, roll2), Some(std::cmp::min(roll1, roll2))),
+                                    "Disadvantage" => (std::cmp::min(roll1, roll2), Some(std::cmp::max(roll1, roll2))),
+                                    _ => (roll1, None),
+                                };
 
-                            // Calculate Damage using the new helper function
-                            let (_total_damage, damage_output) = calculate_damage(
-                                if d20_roll == 20 {attack_clone.num_dice*2} else {attack_clone.num_dice},
-                                &attack_clone.dice_used,
-                                ability_mod,
-                            );
+                                let ability_mod = get_ability_mod(&combatant_clone, &attack_clone);
+                                let total_mod = ability_mod + combatant_clone.monster_template.pb;
+                                let to_hit = d20_roll + total_mod;
+                                let crit_message = if d20_roll == 20 { " -> CRITICAL HIT!" } else { "" };
 
-                            buffer.insert(&mut iter, &format!("  Attack {}: To hit: {} + {} (Total Mod) = {}{}; Damage: {}\n", 
-                                i + 1, d20_roll, ability_mod + combatant_clone.monster_template.pb, to_hit, crit_message, damage_output));
+                                let (_total_damage, damage_output) = calculate_damage(
+                                    if d20_roll == 20 { attack_clone.num_dice * 2 } else { attack_clone.num_dice },
+                                    &attack_clone.dice_used,
+                                    ability_mod,
+                                );
+
+                                let prefix = format!("  Attack {}: To hit: (", i + 1);
+                                let suffix = format!(") + {} (Total Mod) = {}{}; Damage: {}\n", total_mod, to_hit, crit_message, damage_output);
+                                
+                                // Call helper to draw text flawlessly
+                                append_roll_to_console(&buffer, &prefix, d20_roll, lost_roll, &suffix);
                         }
                     } else {
                         buffer.insert(&mut iter, &format!("{}: {} started an attack using {}",
@@ -1020,8 +1087,6 @@ fn save_simulation(simulation_state: &SimulationState) -> io::Result<()> {
     let json_data = serde_json::to_string_pretty(&static_sim)?;
     let mut file = File::create(&path)?;
     file.write_all(json_data.as_bytes())?;
-
-    println!("Saved simulation to file: {:?}", path);
     Ok(())
 }
 
@@ -1056,22 +1121,27 @@ pub fn remove_simulation_file() -> io::Result<()>{
     // check if file exsists
     if check_for_simulation(){
         // kill it
-        let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
-        path.pop();
-        path.push("active_simulation.json");
+        let mut path = get_base_path()?;
+        if !path.exists() {
+            fs::create_dir(&path)?;
+        }
+
+        // Create the file path for the new monster.
+        path.push(format!("active_simulation.json",));
         fs::remove_file(&path)?;
     }
     Ok(())
 }
 
 pub fn check_for_simulation() -> bool {
-    let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
-    path.pop(); // Go up one level from the executable to the target/debug or target/release directory
-    path.push("active_simulation.json"); // Append the "Monsters" directory
-
-    //println!("Checking for active simulation at: {:?}", path);
-    path.exists()
-
+    let path = get_base_path().ok();
+    if path.is_some(){
+        let mut unwraped_path = path.unwrap();
+        // Create the file path for the new monster.
+        unwraped_path.push(format!("active_simulation.json",));
+        return unwraped_path.exists()
+    }
+    false
 }
 
 fn get_ability_mod(combatant: &Combatant, attack: &Attack) -> i32 {
@@ -1086,3 +1156,47 @@ fn get_ability_mod(combatant: &Combatant, attack: &Attack) -> i32 {
     };
     ability_mod
 }
+
+
+fn append_roll_to_console(
+    buffer: &gtk::TextBuffer, 
+    prefix: &str, 
+    won_roll: i32, 
+    lost_roll: Option<i32>, 
+    suffix: &str
+) {
+    // --- DYNAMIC TAG CHECK ---
+    // If the tag doesn't exist in this buffer's table yet, create and add it right now.
+    let tag_table = buffer.tag_table();
+    if tag_table.lookup("strikethrough").is_none() {
+        let tag = gtk::TextTag::builder()
+            .name("strikethrough")
+            .strikethrough(true)
+            .build();
+        tag_table.add(&tag);
+    }
+
+    let mut iter = buffer.end_iter();
+    
+    // 1. Insert everything up to the opening parenthesis
+    buffer.insert(&mut iter, prefix);
+    
+    if let Some(lost) = lost_roll {
+        // Write the winning roll and separator
+        buffer.insert(&mut iter, &format!("{} | ", won_roll));
+        let start_offset = buffer.char_count();
+        buffer.insert(&mut iter, &lost.to_string());
+        let end_offset = buffer.char_count();
+        
+        // Generate clean iterators using stationary offsets
+        let start_strike = buffer.iter_at_offset(start_offset);
+        let end_strike = buffer.iter_at_offset(end_offset);
+        buffer.apply_tag_by_name("strikethrough", &start_strike, &end_strike);
+    } else {
+        // Natural Mode: Just write the single roll
+        buffer.insert(&mut iter, &won_roll.to_string());
+    }
+        let mut end_iter = buffer.end_iter();
+    buffer.insert(&mut end_iter, suffix);
+}
+
