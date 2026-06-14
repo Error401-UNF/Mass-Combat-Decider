@@ -15,7 +15,7 @@
 
     # 1. The core Rust package (built with standard rustPlatform)
     massCombatDecider = pkgs.rustPlatform.buildRustPackage {
-      pname = "mass-combat-decider";
+      pname = "MassCombatDecider";
       version = "0.1.3";
       src = self; 
       cargoLock = { lockFile = ./Cargo.lock; };
@@ -27,7 +27,7 @@
 
     # 2. The final bundled package (creates the AppImage-like wrapper)
     bundledApp = pkgs.stdenv.mkDerivation {
-      pname = "mass-combat-decider-portable";
+      pname = "MassCombatDecider";
       version = "0.1.3";
       src = massCombatDecider; 
       nativeBuildInputs = [ pkgs.makeWrapper ]; 
@@ -35,7 +35,7 @@
       installPhase = ''
         runHook preInstall
 
-        localName="mass-combat-decider-portable"
+        localName="MassCombatDecider"
         mkdir -p $out/bin
         
         cp $src/bin/MassCombatDecider $out/bin/$localName
@@ -44,7 +44,18 @@
         wrapProgram $out/bin/$localName \
           --prefix PATH : ${pkgs.lib.makeBinPath gtkDeps} \
           --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath gtkDeps}
-
+        # --- Create Desktop Entry for Launchers (Rofi, etc.) ---
+        mkdir -p $out/share/applications
+        cat > $out/share/applications/MassCombatDecider.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Mass Combat Decider
+Comment=Simulate large-scale D&D combat efficiently
+Exec=$out/bin/MassCombatDecider
+Icon=system-run
+Terminal=false
+Categories=Game;Utility;
+EOF
         runHook postInstall
       '';
     };
