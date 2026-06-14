@@ -42,32 +42,28 @@
       pname = "mass-combat-decider-portable";
       version = "0.1.1";
       
-      # Use the output of the built Rust package as the source for the wrapper
       src = massCombatDecider; 
 
-      # The standard installation directory
+      # Tools needed to create the wrapper MUST be here
+      nativeBuildInputs = [ pkgs.makeWrapper ]; 
+      buildInputs = gtkDeps;
+
+      # We change installPhase to a phases-conscious block or fix the hook usage
       installPhase = ''
-        localName="mass-combat-decider-portable" # Target name for the AppImage bundler
-        
+        runHook preInstall
+
+        localName="mass-combat-decider-portable"
         mkdir -p $out/bin
         
-        # 1. Copy the built executable to the expected name
         cp $src/bin/MassCombatDecider $out/bin/$localName
-        
-        # 2. Ensure the copied file is executable (crucial for the AppImage bundler)
         chmod +x $out/bin/$localName
         
-        # 3. Create the wrapper script with all GTK dependencies
         wrapProgram $out/bin/$localName \
           --prefix PATH : ${pkgs.lib.makeBinPath gtkDeps} \
           --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath gtkDeps}
-      '';
 
-      # Set dependencies so Nix knows what to bundle with the wrapper
-      buildInputs = gtkDeps;
-      
-      # Tools needed to create the wrapper
-      nativeBuildInputs = with pkgs; [ makeWrapper ]; 
+        runHook postInstall
+      '';
     };
 
   in

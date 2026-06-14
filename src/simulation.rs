@@ -1021,15 +1021,17 @@ fn save_simulation(simulation_state: &SimulationState) -> io::Result<()> {
     let mut file = File::create(&path)?;
     file.write_all(json_data.as_bytes())?;
 
-    //println!("Saved simulation to file: {:?}", path);
+    println!("Saved simulation to file: {:?}", path);
     Ok(())
 }
 
 fn get_simulation() -> Option<StaticSimulationState> {
     // gets and delets the saved simulation file
-    let mut path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
-    path.pop();
-    path.push("active_simulation.json");
+    let mut path = get_base_path().ok()?;
+    if !path.exists() {
+        return None;
+    }
+    path.push(format!("active_simulation.json",));
 
     let mut file = match File::open(&path) {
         Ok(f) => f,
