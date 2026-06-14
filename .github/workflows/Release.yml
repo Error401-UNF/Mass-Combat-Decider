@@ -1,0 +1,176 @@
+name: Draft Manual Release
+
+on:
+  workflow_dispatch: # Allows you to trigger it manually via the GitHub Actions tab
+
+permissions:
+  contents: write # Crucial permission allowing the runner to create a release and attach assets
+
+jobs:
+  # ==========================================
+  # JOB 1: Build the Linux AppImage
+  # ==========================================
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev pkg-config libglib2.0-dev wget
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Setup AppDir and Bundle
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp target/release/MassCombatDecider AppDir/usr/bin/
+          strip AppDir/usr/bin/MassCombatDecider
+          cp /usr/share/icons/Adwaita/scalable/devices/computer-symbolic.svg AppDir/MassCombatDecider.svg
+          
+          wget -c https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+          
+          wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+          chmod +x linuxdeploy-plugin-gtk.sh
+
+          export DEPLOY_GTK_VERSION=4
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir \
+            --executable AppDir/usr/bin/MassCombatDecider \
+            -i AppDir/MassCombatDecider.svg \
+            --create-desktop-file \
+            --plugin gtk \
+            --output appimage
+
+          mv MassCombatDecider-x86_64.AppImage MassCombatDecider-Linux.AppImage
+
+      - name: Upload Linux Intermediate Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-bin
+          path: MassCombatDecider-Linux.AppImage
+
+  # ==========================================
+  # JOB 2: Build the Windows Portable Zip
+  # ==========================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSYS2 Environment
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64 
+        update: true 
+
+    - name: Install GTK4 and Rust Dependencies
+      run: |
+        PACKAGES="mingw-w64-x86_64-toolchain \
+          mingw-w64-x86_64-pkg-config \
+          mingw-w64-x86_64-gtk4 \
+          mingw-w64-x86_64-libadwaita \
+          mingw-w64-x86_64-glib2 \
+          mingw-w64-x86_64-gobject-introspection \
+          mingw-w64-x86_64-rust \
+          zip \
+          git \
+          make"
+
+        RETRY_COUNT=0
+        MAX_RETRIES=3
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          pacman -Syu --noconfirm && pacman -S --noconfirm $PACKAGES
+          if [ $? -eq 0 ]; then
+            echo "Installation successful."
+            exit 0
+          else
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            sleep 5
+          fi
+        done
+        exit 1
+      shell: msys2 {0}
+
+    - name: Build GTK-RS Application
+      run: CARGO_TARGET_DIR=build_output cargo build --release
+      shell: msys2 {0}
+
+    - name: Package Windows Executable with DLLs
+      id: package
+      run: |
+        EXE_PATH="./build_output/release/MassCombatDecider.exe"
+        PACKAGE_DIR="MassCombatDecider-Windows-Portable"
+        mkdir -p ${PACKAGE_DIR}/bin
+        mkdir -p ${PACKAGE_DIR}/share
+        cp ${EXE_PATH} ${PACKAGE_DIR}/bin/
+        
+        MINGW_ROOT="/mingw64"
+        for DLL in libgtk-4-1.dll libadwaita-1-0.dll libgdk_pixbuf-2.0-0.dll; do
+            cp ${MINGW_ROOT}/bin/${DLL} ${PACKAGE_DIR}/bin/ || echo "Warning: $DLL not found"
+        done
+        find ${MINGW_ROOT}/bin -maxdepth 1 -type f \( -name "libg*.dll" -o -name "libcairo*.dll" -o -name "libpango*.dll" -o -name "libgio*.dll" -o -name "libz*.dll" -o -name "libiconv*.dll" \) -exec cp {} ${PACKAGE_DIR}/bin/ \; || true
+        
+        cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
+        cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
+        cp -r ${MINGW_ROOT}/share/icons ${PACKAGE_DIR}/share/
+        
+        ADWAITA_SHARE=$(find ${MINGW_ROOT}/share -maxdepth 1 -type d -name "*adwaita*" | head -n 1)
+        if [ -n "$ADWAITA_SHARE" ]; then
+          cp -r "$ADWAITA_SHARE" ${PACKAGE_DIR}/share/
+        fi
+        glib-compile-schemas ${PACKAGE_DIR}/share/glib-2.0/schemas
+        
+        # Zip up the folder so it downloads easily as a single archive
+        zip -r MassCombatDecider-Windows.zip ${PACKAGE_DIR}
+      shell: msys2 {0}
+      
+    - name: Upload Windows Intermediate Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-bin
+        path: MassCombatDecider-Windows.zip
+
+  # ==========================================
+  # JOB 3: Merge and Publish GitHub Release
+  # ==========================================
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows] # Ensures this only runs when both complete successfully
+    steps:
+      - name: Generate Version Tag
+        id: version
+        run: |
+          # Creates a unique timestamped tag like v2026.06.14-1647
+          TAG_NAME="v$(date +'%Y.%m.%d-%H%M')"
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Download Linux Build
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-bin
+          path: ./release-assets
+
+      - name: Download Windows Build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-bin
+          path: ./release-assets
+
+      - name: Publish Official GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Mass Combat Decider ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+          files: |
+            ./release-assets/MassCombatDecider-Linux.AppImage
+            ./release-assets/MassCombatDecider-Windows.zip
