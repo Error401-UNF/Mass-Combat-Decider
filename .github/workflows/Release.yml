@@ -152,7 +152,7 @@ jobs:
         run: |
           # Finds the first line matching version = "...", extracts the string, and formats it
           RAW_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
-          TAG_NAME="v$RAW_VERSION"
+          TAG_NAME="$RAW_VERSION"
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Download Linux Build
@@ -170,8 +170,8 @@ jobs:
       - name: Publish Official GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.get_version.outputs.tag }}
-          name: Mass Combat Decider ${{ steps.get_version.outputs.tag }}
+          tag_name: v${{ steps.get_version.outputs.tag }}
+          name: Version Decider ${{ steps.get_version.outputs.tag }}
           draft: false
           prerelease: false
           generate_release_notes: true
