@@ -71,7 +71,9 @@ jobs:
         msystem: MINGW64 
         update: true 
 
+    # 2. Install Dependencies (Added ntldd to the package string)
     - name: Install GTK4 and Rust Dependencies
+      id: install_deps
       run: |
         PACKAGES="mingw-w64-x86_64-toolchain \
           mingw-w64-x86_64-pkg-config \
@@ -80,12 +82,14 @@ jobs:
           mingw-w64-x86_64-glib2 \
           mingw-w64-x86_64-gobject-introspection \
           mingw-w64-x86_64-rust \
+          mingw-w64-x86_64-ntldd \
           zip \
           git \
           make"
 
         RETRY_COUNT=0
         MAX_RETRIES=3
+        
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           pacman -Syu --noconfirm && pacman -S --noconfirm $PACKAGES
           if [ $? -eq 0 ]; then
@@ -93,6 +97,7 @@ jobs:
             exit 0
           else
             RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Installation failed. Retrying..."
             sleep 5
           fi
         done
@@ -103,6 +108,7 @@ jobs:
       run: CARGO_TARGET_DIR=build_output cargo build --release
       shell: msys2 {0}
 
+    # 4. Packaging Step: Use ntldd to systematically collect dependencies
     - name: Package Windows Executable with DLLs
       id: package
       run: |
@@ -115,27 +121,27 @@ jobs:
         
         MINGW_ROOT="/mingw64"
         
-        echo "Copying all runtime DLL dependencies..."
-        cp ${MINGW_ROOT}/bin/lib*.dll ${PACKAGE_DIR}/bin/
+        echo "Dynamically resolving and copying exact DLL dependencies..."
+        ntldd -R ${EXE_PATH} | grep -i "=> /mingw64" | awk '{print $3}' | while read -r dll_path; do
+            # Clean path structure and copy it into our runtime bin folder
+            SAFE_PATH=$(echo "$dll_path" | tr -d '\r')
+            if [ -f "$SAFE_PATH" ]; then
+                cp "$SAFE_PATH" ${PACKAGE_DIR}/bin/
+            fi
+        done
         
-        if [ -f "${MINGW_ROOT}/bin/gdbus.exe" ]; then
-            cp ${MINGW_ROOT}/bin/gdbus.exe ${PACKAGE_DIR}/bin/
-        fi
-        
-        echo "Dynamically locating and copying shared data..."
+        echo "Copying shared GTK data..."
         cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/icons ${PACKAGE_DIR}/share/
         
         ADWAITA_SHARE=$(find ${MINGW_ROOT}/share -maxdepth 1 -type d -name "*adwaita*" | head -n 1)
         if [ -n "$ADWAITA_SHARE" ]; then
-          echo "Found libadwaita data at: $ADWAITA_SHARE"
           cp -r "$ADWAITA_SHARE" ${PACKAGE_DIR}/share/
         fi
         
         glib-compile-schemas ${PACKAGE_DIR}/share/glib-2.0/schemas
         
-        # Zip up the folder
         zip -r MassCombatDecider-Windows.zip ${PACKAGE_DIR}
       shell: msys2 {0}
       
