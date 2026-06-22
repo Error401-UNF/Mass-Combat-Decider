@@ -115,11 +115,12 @@ jobs:
         
         MINGW_ROOT="/mingw64"
         
-        echo "Dynamically resolving and copying exact DLL dependencies..."
-        ntldd -R ${EXE_PATH} | grep "=> /mingw64" | awk '{print $3}' | while read -r dll_path; do
-            # Convert Windows style paths to POSIX if needed and copy safely
-            cp "$(cygpath -u "$dll_path")" ${PACKAGE_DIR}/bin/
-        done
+        echo "Copying all runtime DLL dependencies..."
+        cp ${MINGW_ROOT}/bin/lib*.dll ${PACKAGE_DIR}/bin/
+        
+        if [ -f "${MINGW_ROOT}/bin/gdbus.exe" ]; then
+            cp ${MINGW_ROOT}/bin/gdbus.exe ${PACKAGE_DIR}/bin/
+        fi
         
         echo "Dynamically locating and copying shared data..."
         cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
