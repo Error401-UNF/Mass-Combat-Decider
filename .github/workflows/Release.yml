@@ -115,40 +115,54 @@ jobs:
         EXE_PATH="./build_output/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
         
+        # Clear out any stale directories and make clean folders
+        rm -rf "${PACKAGE_DIR}"
         mkdir -p "${PACKAGE_DIR}/bin"
-        mkdir -p "${PACKAGE_DIR}/share"
+        mkdir -p "${PACKAGE_DIR}/share/glib-2.0/schemas"
+        
+        # 1. Copy the core executable
         cp "${EXE_PATH}" "${PACKAGE_DIR}/bin/"
         
-        echo "Tracking down actual DLLs using ntldd..."
+        echo "Hunting down exact required DLL dependencies (Pure Bash)..."
         
-        # ntldd -R recursively finds all dependencies
-        ntldd -R "${EXE_PATH}" | grep -i "mingw64" | while read -r line; do
-            # Pull out the Windows path from the ntldd output
-            win_path=$(echo "$line" | grep -oE '[A-Za-z]:\\[^:]+')
-            if [ -n "$win_path" ]; then
-                clean_path=$(cygpath -u "$win_path" 2>/dev/null || echo "")
-                if [ -f "$clean_path" ]; then
-                    echo "Found and copying: $(basename "$clean_path")"
-                    cp "$clean_path" "${PACKAGE_DIR}/bin/"
+        # Loop through each line output by ntldd natively
+        ntldd -R "${EXE_PATH}" | while read -r line; do
+            # Convert line to lowercase using bash built-ins for a safe check
+            line_lower="${line,,}"
+            
+            # Check if the line contains "mingw64" using pure Bash matching
+            if [[ "$line_lower" == *"mingw64"* && "$line" == *"=> "* ]]; then
+                
+                # Split line at "=> " to get everything on the right side
+                right_side="${line#*=> }"
+                
+                # Parse tokens to find the absolute Windows path (e.g., C:\...)
+                for token in $right_side; do
+                    if [[ "$token" == ?:\\* ]]; then
+                        win_path="$token"
+                        break
+                    fi
+                done
+                
+                # If a valid path was extracted, convert and copy it
+                if [ -n "$win_path" ]; then
+                    clean_path=$(cygpath -u "$win_path")
+                    if [ -f "$clean_path" ]; then
+                        echo "Bundling: $(basename "$clean_path")"
+                        cp "$clean_path" "${PACKAGE_DIR}/bin/"
+                    fi
                 fi
             fi
         done
         
-        echo "Copying shared GTK assets..."
-        cp -r /mingw64/share/glib-2.0 "${PACKAGE_DIR}/share/"
-        cp -r /mingw64/share/gtk-4.0 "${PACKAGE_DIR}/share/"
-        cp -r /mingw64/share/icons "${PACKAGE_DIR}/share/"
+        echo "Copying ONLY bare-minimum required GLib schemas (No Images!)"
+        cp /mingw64/share/glib-2.0/schemas/*.gschema.xml "${PACKAGE_DIR}/share/glib-2.0/schemas/"
         
-        ADWAITA_SHARE=$(find /mingw64/share -maxdepth 1 -type d -name "*adwaita*" | head -n 1)
-        if [ -n "$ADWAITA_SHARE" ]; then
-          cp -r "$ADWAITA_SHARE" "${PACKAGE_DIR}/share/"
-        fi
-        
-        # Compile schemas using a safe Windows path format for the GLib tool
+        echo "Compiling schemas for the portable environment..."
         TARGET_SCHEMA_DIR=$(cygpath -w "${PACKAGE_DIR}/share/glib-2.0/schemas")
         glib-compile-schemas "$TARGET_SCHEMA_DIR"
         
-        echo "Zipping up portable package..."
+        echo "Zipping clean portable package..."
         zip -r MassCombatDecider-Windows.zip "${PACKAGE_DIR}"
       shell: msys2 {0}
       
