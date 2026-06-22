@@ -16,7 +16,7 @@
     # 1. The core Rust package (built with standard rustPlatform)
     massCombatDecider = pkgs.rustPlatform.buildRustPackage {
       pname = "MassCombatDecider";
-      version = "0.1.3";
+      version = "0.2.1";
       src = self; 
       cargoLock = { lockFile = ./Cargo.lock; };
       nativeBuildInputs = with pkgs; [ pkg-config ];

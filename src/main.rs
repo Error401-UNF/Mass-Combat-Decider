@@ -8,7 +8,7 @@ mod interface;
 mod simulation;
 mod ui_factory;
 
-const APP_ID: &str = "org.example.GtkRsApp";
+const APP_ID: &str = "github.com/Error401-UNF/Mass-Combat-Decider";
 
 fn main() {
     // Create a new application

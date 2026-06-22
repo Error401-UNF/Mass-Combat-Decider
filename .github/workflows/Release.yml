@@ -1,4 +1,4 @@
-name: Draft Manual Release
+name: Create Release
 
 on:
   workflow_dispatch: # Allows you to trigger it manually via the GitHub Actions tab
@@ -108,27 +108,33 @@ jobs:
       run: |
         EXE_PATH="./build_output/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
+        
         mkdir -p ${PACKAGE_DIR}/bin
         mkdir -p ${PACKAGE_DIR}/share
         cp ${EXE_PATH} ${PACKAGE_DIR}/bin/
         
         MINGW_ROOT="/mingw64"
-        for DLL in libgtk-4-1.dll libadwaita-1-0.dll libgdk_pixbuf-2.0-0.dll; do
-            cp ${MINGW_ROOT}/bin/${DLL} ${PACKAGE_DIR}/bin/ || echo "Warning: $DLL not found"
-        done
-        find ${MINGW_ROOT}/bin -maxdepth 1 -type f \( -name "libg*.dll" -o -name "libcairo*.dll" -o -name "libpango*.dll" -o -name "libgio*.dll" -o -name "libz*.dll" -o -name "libiconv*.dll" \) -exec cp {} ${PACKAGE_DIR}/bin/ \; || true
         
+        echo "Dynamically resolving and copying exact DLL dependencies..."
+        ntldd -R ${EXE_PATH} | grep "=> /mingw64" | awk '{print $3}' | while read -r dll_path; do
+            # Convert Windows style paths to POSIX if needed and copy safely
+            cp "$(cygpath -u "$dll_path")" ${PACKAGE_DIR}/bin/
+        done
+        
+        echo "Dynamically locating and copying shared data..."
         cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
         cp -r ${MINGW_ROOT}/share/icons ${PACKAGE_DIR}/share/
         
         ADWAITA_SHARE=$(find ${MINGW_ROOT}/share -maxdepth 1 -type d -name "*adwaita*" | head -n 1)
         if [ -n "$ADWAITA_SHARE" ]; then
+          echo "Found libadwaita data at: $ADWAITA_SHARE"
           cp -r "$ADWAITA_SHARE" ${PACKAGE_DIR}/share/
         fi
+        
         glib-compile-schemas ${PACKAGE_DIR}/share/glib-2.0/schemas
         
-        # Zip up the folder so it downloads easily as a single archive
+        # Zip up the folder
         zip -r MassCombatDecider-Windows.zip ${PACKAGE_DIR}
       shell: msys2 {0}
       
