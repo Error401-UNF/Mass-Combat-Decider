@@ -14,29 +14,9 @@ Monster Folders
 add other support for resistances
 
 # Known bugs
-You cant uh move the starting window in a non-hyprland window manager
+1. You cant uh move the starting window in a non-hyprland window manager
 
-# Fixed bugs
-crits are now calculated correctly 
-
-Found what was bricking the save simulation button. Fixed
-# Finished
-Resistance tags (general)
-
-Add max hp to the flow box
-
-Replace Some dropdowns in monster creation menu with textboxes (did all)
-
-Sorted monsters by name alphabetically
-
-Add Simulation Save function
-
-better monster editer (you can like actually edit your monsters stats if you fuck them up now)
-
-In attack generator, Add is save and no bonus notes
-
-Added bloodied tag. The whole card becomes red when hp goes below 1/2
-
-Advantage/disadvantage modifier. Added as modes in simulation
-
-Added round tracker
+# Windows issues
+1. The window is white and blue. not the good colors that i get on my machine
+2. You cant move any of the involved windows at all. Likly the same issue as known bug #1
+3. Monster saving directory dne and also cant be made for whatever reason. Uhhh concidering moveing it to appdata
