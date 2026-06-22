@@ -91,7 +91,7 @@ jobs:
         MAX_RETRIES=3
         
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-          pacman -Syu --noconfirm && pacman -S --noconfirm $PACKAGES
+          pacman -Sy --noconfirm && pacman -S --noconfirm $PACKAGES
           if [ $? -eq 0 ]; then
             echo "Installation successful."
             exit 0
@@ -115,47 +115,41 @@ jobs:
         EXE_PATH="./build_output/release/MassCombatDecider.exe"
         PACKAGE_DIR="MassCombatDecider-Windows-Portable"
         
-        mkdir -p ${PACKAGE_DIR}/bin
-        mkdir -p ${PACKAGE_DIR}/share
-        cp ${EXE_PATH} ${PACKAGE_DIR}/bin/
+        mkdir -p "${PACKAGE_DIR}/bin"
+        mkdir -p "${PACKAGE_DIR}/share"
+        cp "${EXE_PATH}" "${PACKAGE_DIR}/bin/"
         
-        MINGW_ROOT="/mingw64"
+        echo "Tracking down actual DLLs using ntldd..."
         
-        echo "Running dependency scan..."
-        ntldd -R "${EXE_PATH}" > raw_deps.txt || echo "Warning: ntldd exited with a code, processing anyway."
-        
-        echo "Parsing and copying dependencies..."
-        while read -r line; do
-            # Safely check if the line references a mingw64 library without throwing a shell error
-            if echo "$line" | grep -qi "=> /mingw64"; then
-                # Extract the file path component safely
-                dll_path=$(echo "$line" | awk '{print $3}' | tr -d '\r')
-                
-                if [ -f "$dll_path" ]; then
-                    echo "Copying: $(basename "$dll_path")"
-                    cp "$dll_path" ${PACKAGE_DIR}/bin/
+        # ntldd -R recursively finds all dependencies
+        ntldd -R "${EXE_PATH}" | grep -i "mingw64" | while read -r line; do
+            # Pull out the Windows path from the ntldd output
+            win_path=$(echo "$line" | grep -oE '[A-Za-z]:\\[^:]+')
+            if [ -n "$win_path" ]; then
+                clean_path=$(cygpath -u "$win_path" 2>/dev/null || echo "")
+                if [ -f "$clean_path" ]; then
+                    echo "Found and copying: $(basename "$clean_path")"
+                    cp "$clean_path" "${PACKAGE_DIR}/bin/"
                 fi
             fi
-        done < raw_deps.txt
+        done
         
-        # Clean up temporary scan file
-        rm -f raw_deps.txt
-                
-        echo "Copying shared GTK data..."
-        cp -r ${MINGW_ROOT}/share/glib-2.0 ${PACKAGE_DIR}/share/
-        cp -r ${MINGW_ROOT}/share/gtk-4.0 ${PACKAGE_DIR}/share/
-        cp -r ${MINGW_ROOT}/share/icons ${PACKAGE_DIR}/share/
+        echo "Copying shared GTK assets..."
+        cp -r /mingw64/share/glib-2.0 "${PACKAGE_DIR}/share/"
+        cp -r /mingw64/share/gtk-4.0 "${PACKAGE_DIR}/share/"
+        cp -r /mingw64/share/icons "${PACKAGE_DIR}/share/"
         
-        ADWAITA_SHARE=$(find ${MINGW_ROOT}/share -maxdepth 1 -type d -name "*adwaita*" | head -n 1)
+        ADWAITA_SHARE=$(find /mingw64/share -maxdepth 1 -type d -name "*adwaita*" | head -n 1)
         if [ -n "$ADWAITA_SHARE" ]; then
-          echo "Found libadwaita data at: $ADWAITA_SHARE"
-          cp -r "$ADWAITA_SHARE" ${PACKAGE_DIR}/share/
+          cp -r "$ADWAITA_SHARE" "${PACKAGE_DIR}/share/"
         fi
         
-        glib-compile-schemas ${PACKAGE_DIR}/share/glib-2.0/schemas
+        # Compile schemas using a safe Windows path format for the GLib tool
+        TARGET_SCHEMA_DIR=$(cygpath -w "${PACKAGE_DIR}/share/glib-2.0/schemas")
+        glib-compile-schemas "$TARGET_SCHEMA_DIR"
         
-        echo "Archiving artifact..."
-        zip -r MassCombatDecider-Windows.zip ${PACKAGE_DIR}
+        echo "Zipping up portable package..."
+        zip -r MassCombatDecider-Windows.zip "${PACKAGE_DIR}"
       shell: msys2 {0}
       
     - name: Upload Windows Intermediate Artifact
