@@ -53,6 +53,8 @@ fn first_start(app: &AdwApplication) {
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
+        .default_width(800)
+        .default_height(600)
         .build();
 
     let header_bar = libadwaita::HeaderBar::new();
@@ -66,6 +68,8 @@ fn monster_list(app: &AdwApplication) {
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
+        .default_width(800)
+        .default_height(600)
         .build();
 
     let header_bar = libadwaita::HeaderBar::new();
