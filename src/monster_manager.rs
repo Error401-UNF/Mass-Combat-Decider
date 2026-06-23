@@ -55,14 +55,15 @@ pub fn get_base_path() -> io::Result<PathBuf> {
     let mut path = std::env::home_dir().unwrap();
 
     if cfg!(target_os = "windows") {
-        // Windows path: C:\Users\Name\Documents\MonsterMan
-        path.push("Documents");
+        // Windows path: C:\Users\Name\AppData\Local\MonsterManager
+        path.push("AppData");
+        path.push("Local");
     } else {
-        // Unix path: /home/name/.config/MonsterMan
+        // Unix path: /home/name/.config/MonsterManager 
         path.push(".config");
     }
 
-    path.push("MonsterMan");
+    path.push("MonsterManager");
     Ok(path)
 }
 
