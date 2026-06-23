@@ -15,8 +15,8 @@ use gtk::{
     StringObject,
     TextView,
 };
-use libadwaita::{ Application as AdwApplication, Window as AdwWindow };
-use libadwaita::prelude::AdwWindowExt;
+use libadwaita::Application as AdwApplication;
+use gtk::ApplicationWindow as AdwWindow;
 use std::collections::HashMap;
 use std::fs::{ self, File };
 use std::io::{ self, Read, Write };
@@ -97,6 +97,11 @@ pub fn show_simulation_setup_menu(app: &AdwApplication, parent_window: &AdwWindo
         .default_height(500)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+
+
+
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label("Select Combatants", Align::Center, false, &["title-3"]);
     main_vbox.append(&title);
@@ -157,7 +162,7 @@ pub fn show_simulation_setup_menu(app: &AdwApplication, parent_window: &AdwWindo
         start_simulation_view(&app_clone, &parent_window_clone, selected_monsters);
     });
 
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 
@@ -360,7 +365,7 @@ pub fn start_simulation_view(
     main_vbox.append(&bottom_bar);
     scrolled_window.set_child(Some(&simulation_state.flow_box));
     main_vbox.append(&scrolled_window);
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
 }
 
 // =========================================================================
@@ -380,6 +385,9 @@ fn show_killed_monsters_menu(
         .default_width(450)
         .default_height(500)
         .build();
+
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
 
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label(
@@ -434,7 +442,7 @@ fn show_killed_monsters_menu(
     });
     main_vbox.append(&close_button);
 
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 
@@ -452,6 +460,9 @@ pub fn show_edit_simulation_menu(
         .default_height(500)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+    
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label("Edit Combatants", Align::Center, false, &["title-3"]);
     main_vbox.append(&title);
@@ -512,7 +523,7 @@ pub fn show_edit_simulation_menu(
         update_simulation_view(&selected_monsters, &simulation_state);
     });
 
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 

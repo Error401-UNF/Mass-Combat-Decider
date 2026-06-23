@@ -8,7 +8,7 @@ use gtk::{ Entry, Label, ListBox, Orientation, TextView, pango, FlowBox, prelude
 use gtk::{ Button, Align, Box };
 use libadwaita::{ prelude::* };
 use libadwaita::Application as AdwApplication;
-use libadwaita::Window as AdwWindow;
+use gtk::ApplicationWindow as AdwWindow;
 
 use crate::monster_manager::Monster;
 use crate::ui_factory::UiFactory;
@@ -89,6 +89,9 @@ fn show_monster_form(
         .modal(true)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+
     let big_vbox = UiFactory::create_box(Orientation::Vertical, 12, (24, 24, 24, 24));
     let title_label = UiFactory::create_label(title_text, Align::Center, false, &["title-1"]);
 
@@ -102,7 +105,7 @@ fn show_monster_form(
     let hp_entry = UiFactory::create_entry(Some(&hp), Some("Enter hp..."), 15);
 
     let ac_label = UiFactory::create_label("AC:", Align::Start, false, &[]);
-    let ac_entry = UiFactory::create_entry(Some(&ac), Some("ac..."), 3);
+    let ac_entry = UiFactory::create_entry(Some(&ac), Some("ac..."), 5);
 
     let speed_label = UiFactory::create_label("Speed:", Align::Start, false, &[]);
     let speed_entry = UiFactory::create_entry(Some(&speed), Some("speed..."), 7);
@@ -467,7 +470,7 @@ fn show_monster_form(
         window_cancel_clone.close();
     });
 
-    window.set_content(Some(&big_vbox));
+    window.set_child(Some(&big_vbox));
     window.present();
 }
 
@@ -565,7 +568,7 @@ pub fn switch_to_first_time(app: &AdwApplication, window: &AdwWindow) {
     vbox.append(&welcome);
     vbox.append(&create_monster_button);
 
-    window.set_content(Some(&vbox));
+    window.set_child(Some(&vbox));
     window.present();
 }
 
@@ -756,7 +759,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     scrolled_window.set_child(Some(&list_box));
     main_vbox.append(&scrolled_window);
 
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 
@@ -777,6 +780,9 @@ pub fn show_attack_creation_menu(
         .default_height(350)
         .modal(true)
         .build();
+
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
 
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title_label = UiFactory::create_label(
@@ -943,7 +949,7 @@ pub fn show_attack_creation_menu(
         window_clone_cancel.close();
     });
 
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 
@@ -956,6 +962,9 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
         .default_width(350)
         .default_height(400)
         .build();
+
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
 
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label(
@@ -1000,7 +1009,7 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
     });
 
     main_vbox.append(&close_button);
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 

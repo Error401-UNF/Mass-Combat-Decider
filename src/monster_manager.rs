@@ -55,14 +55,15 @@ pub fn get_base_path() -> io::Result<PathBuf> {
     let mut path = std::env::home_dir().unwrap();
 
     if cfg!(target_os = "windows") {
-        // Windows path: C:\Users\Name\Documents\MonsterMan
-        path.push("Documents");
+        // Windows path: C:\Users\Name\AppData\Local\MonsterManager
+        path.push("AppData");
+        path.push("Local");
     } else {
-        // Unix path: /home/name/.config/MonsterMan
+        // Unix path: /home/name/.config/MonsterManager 
         path.push(".config");
     }
 
-    path.push("MonsterMan");
+    path.push("MonsterManager");
     Ok(path)
 }
 
@@ -73,7 +74,7 @@ pub fn save_monster(monster: Monster) -> io::Result<()> {
     let mut path = get_base_path()?;
     path.push("Monsters");
     if !path.exists() {
-        fs::create_dir(&path)?;
+        fs::create_dir_all(&path)?; 
     }
 
     // Create the file path for the new monster.
