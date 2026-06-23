@@ -8,7 +8,7 @@ mod interface;
 mod simulation;
 mod ui_factory;
 
-const APP_ID: &str = "github.com/Error401-UNF/Mass-Combat-Decider";
+const APP_ID: &str = "com.mass.combat.decider";
 const EMBEDDED_THEME_CSS: &str = include_str!("theme.css");
 
 fn main() {
@@ -53,8 +53,8 @@ fn first_start(app: &AdwApplication) {
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
-        .default_width(800)
-        .default_height(600)
+        .default_width(900)
+        .default_height(800)
         .build();
 
     let header_bar = libadwaita::HeaderBar::new();
@@ -68,8 +68,8 @@ fn monster_list(app: &AdwApplication) {
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
-        .default_width(800)
-        .default_height(600)
+        .default_width(900)
+        .default_height(800)
         .build();
 
     let header_bar = libadwaita::HeaderBar::new();

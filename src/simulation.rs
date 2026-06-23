@@ -97,6 +97,11 @@ pub fn show_simulation_setup_menu(app: &AdwApplication, parent_window: &AdwWindo
         .default_height(500)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+
+
+
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label("Select Combatants", Align::Center, false, &["title-3"]);
     main_vbox.append(&title);
@@ -381,6 +386,9 @@ fn show_killed_monsters_menu(
         .default_height(500)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label(
         "Killed Monsters and Total XP",
@@ -452,6 +460,9 @@ pub fn show_edit_simulation_menu(
         .default_height(500)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+    
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label("Edit Combatants", Align::Center, false, &["title-3"]);
     main_vbox.append(&title);

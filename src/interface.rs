@@ -89,6 +89,9 @@ fn show_monster_form(
         .modal(true)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+
     let big_vbox = UiFactory::create_box(Orientation::Vertical, 12, (24, 24, 24, 24));
     let title_label = UiFactory::create_label(title_text, Align::Center, false, &["title-1"]);
 
@@ -778,6 +781,9 @@ pub fn show_attack_creation_menu(
         .modal(true)
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
+
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title_label = UiFactory::create_label(
         &format!("Add Attack to {}", monster_name),
@@ -956,6 +962,9 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
         .default_width(350)
         .default_height(400)
         .build();
+
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
 
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label(
