@@ -73,7 +73,7 @@ pub fn save_monster(monster: Monster) -> io::Result<()> {
     let mut path = get_base_path()?;
     path.push("Monsters");
     if !path.exists() {
-        fs::create_dir(&path)?;
+        fs::create_dir_all(&path)?; 
     }
 
     // Create the file path for the new monster.
