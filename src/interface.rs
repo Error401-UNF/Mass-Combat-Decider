@@ -102,7 +102,7 @@ fn show_monster_form(
     let hp_entry = UiFactory::create_entry(Some(&hp), Some("Enter hp..."), 15);
 
     let ac_label = UiFactory::create_label("AC:", Align::Start, false, &[]);
-    let ac_entry = UiFactory::create_entry(Some(&ac), Some("ac..."), 3);
+    let ac_entry = UiFactory::create_entry(Some(&ac), Some("ac..."), 5);
 
     let speed_label = UiFactory::create_label("Speed:", Align::Start, false, &[]);
     let speed_entry = UiFactory::create_entry(Some(&speed), Some("speed..."), 7);

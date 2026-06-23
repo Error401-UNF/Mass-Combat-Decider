@@ -12,6 +12,10 @@ const APP_ID: &str = "github.com/Error401-UNF/Mass-Combat-Decider";
 const EMBEDDED_THEME_CSS: &str = include_str!("theme.css");
 
 fn main() {
+    if std::env::var("GTK_CSD").is_err() {
+        unsafe { std::env::set_var("GTK_CSD", "0") };
+    }
+
     // Create a new application
     let app = AdwApplication::builder() // Use AdwApplication
         .application_id(APP_ID)
