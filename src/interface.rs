@@ -8,7 +8,7 @@ use gtk::{ Entry, Label, ListBox, Orientation, TextView, pango, FlowBox, prelude
 use gtk::{ Button, Align, Box };
 use libadwaita::{ prelude::* };
 use libadwaita::Application as AdwApplication;
-use libadwaita::Window as AdwWindow;
+use gtk::ApplicationWindow as AdwWindow;
 
 use crate::monster_manager::Monster;
 use crate::ui_factory::UiFactory;
@@ -467,7 +467,7 @@ fn show_monster_form(
         window_cancel_clone.close();
     });
 
-    window.set_content(Some(&big_vbox));
+    window.set_child(Some(&big_vbox));
     window.present();
 }
 
@@ -565,7 +565,7 @@ pub fn switch_to_first_time(app: &AdwApplication, window: &AdwWindow) {
     vbox.append(&welcome);
     vbox.append(&create_monster_button);
 
-    window.set_content(Some(&vbox));
+    window.set_child(Some(&vbox));
     window.present();
 }
 
@@ -756,7 +756,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     scrolled_window.set_child(Some(&list_box));
     main_vbox.append(&scrolled_window);
 
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 
@@ -943,7 +943,7 @@ pub fn show_attack_creation_menu(
         window_clone_cancel.close();
     });
 
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 
@@ -1000,7 +1000,7 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
     });
 
     main_vbox.append(&close_button);
-    window.set_content(Some(&main_vbox));
+    window.set_child(Some(&main_vbox));
     window.present();
 }
 

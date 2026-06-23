@@ -1,6 +1,6 @@
 use gtk::{ prelude::* };
 use libadwaita::Application as AdwApplication;
-use libadwaita::Window as AdwWindow;
+use gtk::ApplicationWindow as AdwWindow;
 
 // import local script
 mod monster_manager;
@@ -55,6 +55,8 @@ fn first_start(app: &AdwApplication) {
         .title("Mass Combat Decider")
         .build();
 
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
     interface::switch_to_first_time(app, &window);
 }
 
@@ -65,5 +67,8 @@ fn monster_list(app: &AdwApplication) {
         .application(app)
         .title("Mass Combat Decider")
         .build();
+
+    let header_bar = libadwaita::HeaderBar::new();
+    window.set_titlebar(Some(&header_bar));
     interface::switch_to_monster_list(app, &window);
 }
