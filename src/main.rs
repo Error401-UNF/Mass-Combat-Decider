@@ -11,6 +11,10 @@ mod ui_factory;
 const APP_ID: &str = "com.mass.combat.decider";
 
 fn main() {
+    if std::env::var("GTK_CSD").is_err() {
+        unsafe { std::env::set_var("GTK_CSD", "0") };
+    }
+
     // Create a new application
     let app = AdwApplication::builder() // Use AdwApplication
         .application_id(APP_ID)
