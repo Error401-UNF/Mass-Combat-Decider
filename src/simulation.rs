@@ -1,20 +1,6 @@
 // simulation.rs
 
-use gtk::{
-    prelude::*,
-    Align,
-    Box,
-    DropDown,
-    FlowBox,
-    Frame,
-    Label,
-    ListBox,
-    Orientation,
-    ScrolledWindow,
-    SpinButton,
-    StringObject,
-    TextView,
-};
+use gtk::{prelude::*, Align, Box, DropDown, FlowBox, Frame, Label, ListBox, Orientation, ScrolledWindow, SpinButton, StringObject, TextView};
 use libadwaita::Application as AdwApplication;
 use gtk::ApplicationWindow as AdwWindow;
 use std::collections::HashMap;
@@ -100,8 +86,6 @@ pub fn show_simulation_setup_menu(app: &AdwApplication, parent_window: &AdwWindo
     let header_bar = libadwaita::HeaderBar::new();
     window.set_titlebar(Some(&header_bar));
 
-
-
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label("Select Combatants", Align::Center, false, &["title-3"]);
     main_vbox.append(&title);
@@ -173,7 +157,6 @@ pub fn start_simulation_view(
     selected_monsters: Vec<(Monster, i32)>
 ) {
     window.set_title(Some("Mass Combat Decider - Simulation"));
-
     // --- Generate the list of individual combatants ---
     let mut combatants: Vec<Combatant> = Vec::new();
     let mut name_counts: HashMap<String, i32> = HashMap::new();
@@ -366,6 +349,7 @@ pub fn start_simulation_view(
     scrolled_window.set_child(Some(&simulation_state.flow_box));
     main_vbox.append(&scrolled_window);
     window.set_child(Some(&main_vbox));
+    gtk::prelude::RootExt::set_focus(window, Some(&main_vbox)); // fixes a minor bug where the round scroll box would get automaticly focused (anoying)
 }
 
 // =========================================================================
@@ -462,7 +446,7 @@ pub fn show_edit_simulation_menu(
 
     let header_bar = libadwaita::HeaderBar::new();
     window.set_titlebar(Some(&header_bar));
-    
+
     let main_vbox = UiFactory::create_box(Orientation::Vertical, 12, (12, 12, 12, 12));
     let title = UiFactory::create_label("Edit Combatants", Align::Center, false, &["title-3"]);
     main_vbox.append(&title);

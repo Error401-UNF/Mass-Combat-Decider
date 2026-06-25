@@ -1,19 +1,4 @@
-use gtk::{
-    Adjustment,
-    Align,
-    Box,
-    Button,
-    CheckButton,
-    DropDown,
-    Entry,
-    Label,
-    Orientation,
-    ScrolledWindow,
-    SpinButton,
-    StringObject,
-    glib::object::Cast,
-    prelude::WidgetExt,
-};
+use gtk::{ Adjustment, Align, Box, Button, CheckButton, DropDown, Entry, Label, Orientation, ScrolledWindow, SpinButton, StringObject, glib::object::Cast, prelude::WidgetExt};
 
 pub struct UiFactory;
 
