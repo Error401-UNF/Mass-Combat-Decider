@@ -9,7 +9,6 @@ mod simulation;
 mod ui_factory;
 
 const APP_ID: &str = "com.mass.combat.decider";
-const EMBEDDED_THEME_CSS: &str = include_str!("theme.css");
 
 fn main() {
     if std::env::var("GTK_CSD").is_err() {
@@ -20,22 +19,6 @@ fn main() {
     let app = AdwApplication::builder() // Use AdwApplication
         .application_id(APP_ID)
         .build();
-    let _ = gtk::init();
-    let provider = gtk::CssProvider::new();
-    provider.load_from_data(EMBEDDED_THEME_CSS);
-    // Use the gdk module re-exported inside the gtk crate
-    if let Some(display) = gtk::gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(
-            &display,
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
-    }
-
-    app.connect_startup(|_| {
-        let style_manager = libadwaita::StyleManager::default();
-        style_manager.set_color_scheme(libadwaita::ColorScheme::ForceDark);
-    });
 
     // Check for monsters and activate appropriate UI
     if !monster_manager::check_for_monsters() {
@@ -56,7 +39,6 @@ fn first_start(app: &AdwApplication) {
         .default_width(900)
         .default_height(800)
         .build();
-
     let header_bar = libadwaita::HeaderBar::new();
     window.set_titlebar(Some(&header_bar));
     interface::switch_to_first_time(app, &window);

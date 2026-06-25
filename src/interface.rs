@@ -6,7 +6,6 @@ use std::rc::Rc;
 use std::cell::{ Cell, RefCell };
 use gtk::{ Entry, Label, ListBox, Orientation, TextView, pango, FlowBox, prelude::* };
 use gtk::{ Button, Align, Box };
-use libadwaita::{ prelude::* };
 use libadwaita::Application as AdwApplication;
 use gtk::ApplicationWindow as AdwWindow;
 
@@ -19,23 +18,18 @@ use super::{ monster_manager, simulation };
 // Monster Creation/Editing Form
 // =========================================================================
 
+/// New monster creation menu
 pub fn show_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindow) {
     show_monster_form(app, parent_window, None);
 }
 
-pub fn edit_monster_creation_menu(
-    app: &AdwApplication,
-    parent_window: &AdwWindow,
-    monster: Monster
-) {
+/// Edit monster creation menu
+pub fn edit_monster_creation_menu(app: &AdwApplication, parent_window: &AdwWindow, monster: Monster) {
     show_monster_form(app, parent_window, Some(monster));
 }
 
-fn show_monster_form(
-    app: &AdwApplication,
-    parent_window: &AdwWindow,
-    existing_monster: Option<Monster>
-) {
+/// The messy display logic that actually creates the gui for it
+fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_monster: Option<Monster>) {
     let is_edit = existing_monster.is_some();
 
     // Unpack data fields based on create/edit mode
@@ -77,7 +71,7 @@ fn show_monster_form(
                     "".to_string(),
                 ),
         };
-
+    
     let title_text = if is_edit { "Edit Monster" } else { "Create a Monster" };
     let submit_btn_text = if is_edit { "Edit Monster" } else { "Create Monster" };
 
@@ -146,7 +140,8 @@ fn show_monster_form(
 
     let left_vbox = UiFactory::create_box(Orientation::Vertical, 12, (24, 0, 24, 24));
     left_vbox.set_halign(Align::Center);
-
+    
+    // --- Modifier and Saving Throw Grid ---
     let mod_grid = UiFactory::create_grid(12, 12, Align::Center);
     let mod_label = UiFactory::create_label("Mods", Align::Center, false, &[]);
     let save_label = UiFactory::create_label("Save Prof", Align::Center, false, &[]);
@@ -475,15 +470,7 @@ fn show_monster_form(
 }
 
 /// Helper function to build a clean resistance tag chip and manage UI changes and backing state vectors.
-fn add_resistance_chip(
-    flow_box: &FlowBox,
-    list: Rc<RefCell<Vec<String>>>,
-    other_lists: &[Rc<RefCell<Vec<String>>>],
-    term: String,
-    label_suffix: &str,
-    no_res_options: &Rc<Cell<bool>>,
-    no_res_label: &Label
-) {
+fn add_resistance_chip(flow_box: &FlowBox, list: Rc<RefCell<Vec<String>>>, other_lists: &[Rc<RefCell<Vec<String>>>], term: String,label_suffix: &str, no_res_options: &Rc<Cell<bool>>, no_res_label: &Label) {
     if term.trim().is_empty() {
         return;
     }
@@ -537,6 +524,7 @@ fn add_resistance_chip(
 // Secondary Views (Welcome View + Monster list)
 // =========================================================================
 
+/// gui shown when first booting up the app
 pub fn switch_to_first_time(app: &AdwApplication, window: &AdwWindow) {
     let welcome = UiFactory::create_label(
         "Welcome to the Mass Combat Decider.\nThis app is designed to assist you in making combat easier and faster for the DM. It's meant to provide quick calculations for things like # of attacks, attack, and damage rolls.\n\nSince you don't have any monsters yet, create your first one using the button below!",
@@ -572,6 +560,7 @@ pub fn switch_to_first_time(app: &AdwApplication, window: &AdwWindow) {
     window.present();
 }
 
+/// gui shown opppening the app normally
 pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     window.set_title(Some("Mass Combat Decider - Your Monsters"));
 
@@ -767,11 +756,8 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
 // Attack Creation / Removal Forms
 // =========================================================================
 
-pub fn show_attack_creation_menu(
-    app: &AdwApplication,
-    parent_window: &AdwWindow,
-    monster_name: &str
-) {
+/// Displays the form used to create attacks
+pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow, monster_name: &str) {
     let window = AdwWindow::builder()
         .application(app)
         .title(&format!("Add Attack to {}", monster_name))
@@ -953,6 +939,7 @@ pub fn show_attack_creation_menu(
     window.present();
 }
 
+/// Displays the form used to remove attacks
 fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, monster_name: &str) {
     let window = AdwWindow::builder()
         .application(app)
@@ -1013,13 +1000,8 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
     window.present();
 }
 
-fn create_remove_attack_row(
-    attack: &monster_manager::Attack,
-    monster_name: &str,
-    modal_window: AdwWindow,
-    parent_window: AdwWindow,
-    app: AdwApplication
-) -> Box {
+/// Helper function for the attack removal display
+fn create_remove_attack_row(attack: &monster_manager::Attack, monster_name: &str, modal_window: AdwWindow, parent_window: AdwWindow, app: AdwApplication) -> Box {
     let hbox = UiFactory::create_box(Orientation::Horizontal, 12, (6, 6, 12, 12));
     let attack_name = UiFactory::create_label(&attack.attack_name, Align::Start, false, &[]);
     attack_name.set_hexpand(true);
