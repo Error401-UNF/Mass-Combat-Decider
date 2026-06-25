@@ -12,14 +12,11 @@ const APP_ID: &str = "com.mass.combat.decider";
 const EMBEDDED_THEME_CSS: &str = include_str!("theme.css");
 
 fn main() {
-    if std::env::var("GTK_CSD").is_err() {
-        unsafe { std::env::set_var("GTK_CSD", "0") };
-    }
-
     // Create a new application
     let app = AdwApplication::builder() // Use AdwApplication
         .application_id(APP_ID)
         .build();
+    
     let _ = gtk::init();
     let provider = gtk::CssProvider::new();
     provider.load_from_data(EMBEDDED_THEME_CSS);
@@ -31,11 +28,6 @@ fn main() {
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION
         );
     }
-
-    app.connect_startup(|_| {
-        let style_manager = libadwaita::StyleManager::default();
-        style_manager.set_color_scheme(libadwaita::ColorScheme::ForceDark);
-    });
 
     // Check for monsters and activate appropriate UI
     if !monster_manager::check_for_monsters() {

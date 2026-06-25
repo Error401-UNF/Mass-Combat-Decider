@@ -13,5 +13,7 @@ Monster Folders
 
 add other support for resistances
 
+automaticly damage handeling
+
 # Known bugs
 1. You cant uh move the starting window in a non-hyprland window manager (probably solved)

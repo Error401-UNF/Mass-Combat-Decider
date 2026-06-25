@@ -65,7 +65,11 @@ impl UiFactory {
 
     pub fn create_spin_button(min: f64, max: f64, step: f64, initial: f64) -> SpinButton {
         let adj = Adjustment::new(initial, min, max, step, 5.0, 0.0);
-        SpinButton::builder().adjustment(&adj).numeric(true).build()
+        SpinButton::builder()
+            .adjustment(&adj)
+            .numeric(true)
+            .focusable(false)
+            .build()
     }
 
     pub fn create_entry(
