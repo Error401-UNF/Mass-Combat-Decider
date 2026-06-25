@@ -1,4 +1,4 @@
-use gtk::{ Adjustment, Align, Box, Button, CheckButton, DropDown, Entry, Label, Orientation, ScrolledWindow, SpinButton, StringObject, glib::object::Cast, prelude::WidgetExt};
+use gtk::{ Adjustment, Align, Box, Button, CheckButton, DropDown, Entry, Label, Orientation, ScrolledWindow, SpinButton, StringObject, glib::object::Cast, prelude::{EditableExt, WidgetExt}};
 
 pub struct UiFactory;
 
@@ -50,11 +50,33 @@ impl UiFactory {
 
     pub fn create_spin_button(min: f64, max: f64, step: f64, initial: f64) -> SpinButton {
         let adj = Adjustment::new(initial, min, max, step, 5.0, 0.0);
-        SpinButton::builder()
+        let spin_button = SpinButton::builder()
             .adjustment(&adj)
             .numeric(true)
             .focusable(false)
-            .build()
+            .build();
+
+        // Intercept input to allow relative math: e.g., typing "-35" or "+10"
+        spin_button.connect_input(|btn| {
+            let text = btn.text().to_string();
+            let trimmed = text.trim();
+
+            // Check if the input starts with a math operator (+ or -)
+            if trimmed.starts_with('-') || trimmed.starts_with('+') {
+                // Attempt to parse the rest of the text as a float delta
+                if let Ok(delta) = trimmed.parse::<f64>() {
+                    let current_value = btn.value();
+                    let target_value = current_value + delta;
+                    
+                    // Return the calculated value (bounded by adjustment limits)
+                    return Some(Ok(target_value));
+                }
+            }
+            
+            // Return None to fall back to GTK's standard absolute numeric parsing
+            None
+        });
+        spin_button
     }
 
     pub fn create_entry(
