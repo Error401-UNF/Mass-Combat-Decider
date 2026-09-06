@@ -11,7 +11,7 @@
     # System definition
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
-    gtkDeps = with pkgs; [ gtk4 libadwaita glib xorg.libX11 ];
+    gtkDeps = with pkgs; [ gtk4 libadwaita glib libX11 libgbm binutils-unwrapped pipewire];
 
     # 1. The core Rust package (built with standard rustPlatform)
     massCombatDecider = pkgs.rustPlatform.buildRustPackage {
