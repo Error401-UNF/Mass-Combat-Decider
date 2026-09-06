@@ -1,4 +1,4 @@
-use gtk::{ Adjustment, Align, Box, Button, CheckButton, DropDown, Entry, Label, Orientation, ScrolledWindow, SpinButton, StringObject, glib::object::Cast, prelude::{EditableExt, WidgetExt}};
+use gtk4::{ Adjustment, Align, Box, Button, CheckButton, DropDown, Entry, Label, Orientation, ScrolledWindow, SpinButton, StringObject, glib::object::Cast, prelude::{EditableExt, WidgetExt}};
 
 pub struct UiFactory;
 
@@ -83,8 +83,8 @@ impl UiFactory {
         text: Option<&str>,
         placeholder: Option<&str>,
         max_width: i32
-    ) -> gtk::Entry {
-        let mut builder = gtk::Entry::builder().max_width_chars(max_width);
+    ) -> gtk4::Entry {
+        let mut builder = gtk4::Entry::builder().max_width_chars(max_width);
         if let Some(t) = text {
             builder = builder.text(t);
         }
@@ -94,17 +94,17 @@ impl UiFactory {
         builder.build()
     }
 
-    pub fn create_check_button(active: bool) -> gtk::CheckButton {
-        gtk::CheckButton::builder().active(active).build()
+    pub fn create_check_button(active: bool) -> gtk4::CheckButton {
+        gtk4::CheckButton::builder().active(active).build()
     }
 
     pub fn create_dropdown(
         items: &[&str],
         selected: Option<u32>,
         width_request: Option<i32>
-    ) -> gtk::DropDown {
-        let string_list = gtk::StringList::new(items);
-        let mut builder = gtk::DropDown::builder().model(&string_list);
+    ) -> gtk4::DropDown {
+        let string_list = gtk4::StringList::new(items);
+        let mut builder = gtk4::DropDown::builder().model(&string_list);
         if let Some(sel) = selected {
             builder = builder.selected(sel);
         }
@@ -114,8 +114,8 @@ impl UiFactory {
         builder.build()
     }
 
-    pub fn create_grid(row_spacing: i32, col_spacing: i32, halign: Align) -> gtk::Grid {
-        gtk::Grid
+    pub fn create_grid(row_spacing: i32, col_spacing: i32, halign: Align) -> gtk4::Grid {
+        gtk4::Grid
             ::builder()
             .row_spacing(row_spacing)
             .column_spacing(col_spacing)

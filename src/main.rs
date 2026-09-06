@@ -1,6 +1,6 @@
-use gtk::{ prelude::* };
+use gtk4::{ CssProvider, gdk::Display, prelude::* };
 use libadwaita::Application as AdwApplication;
-use gtk::ApplicationWindow as AdwWindow;
+use gtk4::ApplicationWindow as AdwWindow;
 
 // import local script
 mod monster_manager;
@@ -11,10 +11,6 @@ mod ui_factory;
 const APP_ID: &str = "com.mass.combat.decider";
 
 fn main() {
-    if std::env::var("GTK_CSD").is_err() {
-        unsafe { std::env::set_var("GTK_CSD", "0") };
-    }
-
     // Create a new application
     let app = AdwApplication::builder() // Use AdwApplication
         .application_id(APP_ID)
@@ -46,7 +42,20 @@ fn first_start(app: &AdwApplication) {
 
 fn monster_list(app: &AdwApplication) {
     // Use AdwApplication
-    // Create a new window
+            // 1. Load your theme.css file
+        let provider = CssProvider::new();
+        provider.load_from_path("src/theme.css"); 
+        // Note: include_str! bakes theme.css right into your compiled binary.
+        // If it's in a different directory, use standard relative paths or resources.
+
+        // 2. Attach the provider globally to the default display
+        if let Some(display) = Display::default() {
+            gtk4::style_context_add_provider_for_display(
+                &display,
+                &provider,
+                gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
+        }
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")

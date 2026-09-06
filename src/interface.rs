@@ -4,10 +4,10 @@
 
 use std::rc::Rc;
 use std::cell::{ Cell, RefCell };
-use gtk::{ Entry, Label, ListBox, Orientation, TextView, pango, FlowBox, prelude::* };
-use gtk::{ Button, Align, Box };
+use gtk4::{ Entry, Label, ListBox, Orientation, TextView, pango, FlowBox, prelude::* };
+use gtk4::{ Button, Align, Box };
 use libadwaita::Application as AdwApplication;
-use gtk::ApplicationWindow as AdwWindow;
+use gtk4::ApplicationWindow as AdwWindow;
 
 use crate::monster_manager::Monster;
 use crate::ui_factory::UiFactory;
@@ -226,7 +226,7 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
         .valign(Align::Start)
         .max_children_per_line(2)
         .min_children_per_line(2)
-        .selection_mode(gtk::SelectionMode::None)
+        .selection_mode(gtk4::SelectionMode::None)
         .row_spacing(5)
         .column_spacing(1)
         .build();
@@ -616,7 +616,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     });
 
     let scrolled_window = UiFactory::create_scrolled_window(true, true, None);
-    let list_box = ListBox::builder().selection_mode(gtk::SelectionMode::None).build();
+    let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
     let monsters = monster_manager::read_all_monsters();
@@ -807,7 +807,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     input_grid.attach_next_to(
         &attack_name_entry,
         Some(&attack_name_label),
-        gtk::PositionType::Right,
+        gtk4::PositionType::Right,
         1,
         1
     );
@@ -815,7 +815,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     input_grid.attach_next_to(
         &ability_dropdown,
         Some(&ability_label),
-        gtk::PositionType::Right,
+        gtk4::PositionType::Right,
         1,
         1
     );
@@ -823,7 +823,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     input_grid.attach_next_to(
         &dice_used_dropdown,
         Some(&dice_used_label),
-        gtk::PositionType::Right,
+        gtk4::PositionType::Right,
         1,
         1
     );
@@ -831,7 +831,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     input_grid.attach_next_to(
         &num_dice_entry,
         Some(&num_dice_label),
-        gtk::PositionType::Right,
+        gtk4::PositionType::Right,
         1,
         1
     );
@@ -839,7 +839,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     input_grid.attach_next_to(
         &num_attacks_entry,
         Some(&num_attacks_label),
-        gtk::PositionType::Right,
+        gtk4::PositionType::Right,
         1,
         1
     );
@@ -847,7 +847,7 @@ pub fn show_attack_creation_menu(app: &AdwApplication, parent_window: &AdwWindow
     input_grid.attach_next_to(
         &saving_throw_checkbox,
         Some(&saving_throw_label),
-        gtk::PositionType::Right,
+        gtk4::PositionType::Right,
         1,
         1
     );
@@ -963,7 +963,7 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
     main_vbox.append(&title);
 
     let scrolled_window = UiFactory::create_scrolled_window(true, true, None);
-    let list_box = ListBox::builder().selection_mode(gtk::SelectionMode::None).build();
+    let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
     let monster_data = monster_manager::read_monster(monster_name);

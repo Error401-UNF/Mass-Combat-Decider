@@ -129,4 +129,7 @@ read if you used those and something break with a version upgrade you're on your
 @define-color BLACK_700 #1a1a1a;
 @define-color BLACK_900 #000;
 
-.bloodied {border: 1px solid rgb(220, 38, 38);}
+frame.bloodied {    
+    border: 1px solid #8d0808;
+    border-radius: 12px;
+}
