@@ -349,7 +349,7 @@ pub fn start_simulation_view(
     scrolled_window.set_child(Some(&simulation_state.flow_box));
     main_vbox.append(&scrolled_window);
     window.set_child(Some(&main_vbox));
-    gtk4::prelude::RootExt::set_focus(window, Some(&main_vbox)); // fixes a minor bug where the round scroll box would get automaticly focused (anoying)
+    gtk4::prelude::RootExt::set_focus(window, Some(&main_vbox)); // fixes a minor bug where the round scroll box would get automatically focused (annoying)
 }
 
 // =========================================================================
@@ -707,7 +707,7 @@ fn create_stats_row(
         1.0,
         combatant.current_hp as f64
     );
-    let max_hp_label = Label::new(Some(&format!("Max HP: {}", combatant.max_hp)));
+    let max_hp_label = Label::new(Some(&format!("Max HP: {} Hit Die: {}", combatant.max_hp,combatant.monster_template.hitdie)));
 
 
     let combatants_clone = Rc::clone(&simulation_state.combatants);
@@ -761,9 +761,43 @@ fn create_vulnerabilities_label(combatant: &Combatant) -> Option<Label> {
     label_text.pop(); // Remove trailing comma
 
     let vuln_label = UiFactory::create_label(&label_text, Align::Start, true, &[]);
-    vuln_label.set_margin_top(6);
     Some(vuln_label)
 }
+
+fn create_restistances_label(combatant: &Combatant) -> Option<Label> {
+    if combatant.monster_template.restistances.is_empty() {
+        return None; 
+    }
+
+    let mut label_text = String::from("<b>Damage Restistances:</b>");
+    for i in &combatant.monster_template.restistances {
+        label_text.push(' ');
+        label_text.push_str(i);
+        label_text.push(',');
+    }
+    label_text.pop(); // Remove trailing comma
+
+    let vuln_label = UiFactory::create_label(&label_text, Align::Start, true, &[]);
+    Some(vuln_label)
+}
+  
+fn create_invulnerability_label(combatant: &Combatant) -> Option<Label> {
+    if combatant.monster_template.immunities.is_empty() {
+        return None;
+    }
+
+    let mut label_text = String::from("<b>Damage Immunities:</b>");
+    for i in &combatant.monster_template.immunities {
+        label_text.push(' ');
+        label_text.push_str(i);
+        label_text.push(',');
+    }
+    label_text.pop(); // Remove trailing comma
+
+    let vuln_label = UiFactory::create_label(&label_text, Align::Start, true, &[]);
+    Some(vuln_label)
+}
+
 
 /// Creates Abilities info section
 fn create_abilities_label(combatant: &Combatant) -> Label {
@@ -1023,28 +1057,44 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
 
     let vbox = UiFactory::create_box(Orientation::Vertical, 6, (6, 6, 6, 6));
 
-    // Append 1: Header Row
+    // Header Row
     let header_box = create_card_header(combatant, &card_frame, simulation_state);
     vbox.append(&header_box);
 
-    // Append 2: Statistics Panel (HP, AC, Speed)
+    // Statistics Panel (HP, AC, Speed)
     let stats_box = create_stats_row(combatant, &card_frame, simulation_state);
     vbox.append(&stats_box);
 
-    // Append 3: Vulnerabilities (Optional)
+    // Vulnerabilities section
     if let Some(vuln_label) = create_vulnerabilities_label(combatant) {
         vbox.append(&vuln_label);
     }
 
-    // Append 4: Abilities Text Block
+    if let Some(res_label) = create_restistances_label(combatant) {
+        vbox.append(&res_label);
+    }
+
+    if let Some(invln_label) = create_invulnerability_label(combatant) {
+        vbox.append(&invln_label);
+    }
+
+    // Abilities Text Block
     let abilities_text = create_abilities_label(combatant);
     vbox.append(&abilities_text);
 
-    // Append 5: Saves Controls
+    // Abilities Text Block
+    let abilities_text = create_abilities_label(combatant);
+    vbox.append(&abilities_text);
+
+    // Notes Textbox
+    // let notes_box = create_abilities_label(combatant);
+    // vbox.append(&abilities_text);
+
+    // Saves Controls
     let saves_control_panel = create_saves_grid(combatant, simulation_state);
     vbox.append(&saves_control_panel);
 
-    // Append 6: Attacks Controls (Optional)
+    // Attacks Controls
     if let Some(attacks_list) = create_attacks_list(combatant, simulation_state) {
         vbox.append(&attacks_list);
     }

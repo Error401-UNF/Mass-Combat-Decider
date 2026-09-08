@@ -470,7 +470,7 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
 }
 
 /// Helper function to build a clean resistance tag chip and manage UI changes and backing state vectors.
-fn add_resistance_chip(flow_box: &FlowBox, list: Rc<RefCell<Vec<String>>>, other_lists: &[Rc<RefCell<Vec<String>>>], term: String,label_suffix: &str, no_res_options: &Rc<Cell<bool>>, no_res_label: &Label) {
+fn add_resistance_chip(flow_box: &FlowBox, list: Rc<RefCell<Vec<String>>>, other_lists: &[Rc<RefCell<Vec<String>>>], term: String,label_suffix: &str, no_res_options: &Rc<Cell<bool>>, no_res_label: &Label,) {
     if term.trim().is_empty() {
         return;
     }
@@ -482,12 +482,11 @@ fn add_resistance_chip(flow_box: &FlowBox, list: Rc<RefCell<Vec<String>>>, other
     }
 
     // Stop duplicate insertions into any resistance category
-    if list.borrow().contains(&term) || other_lists.iter().any(|lst| lst.borrow().contains(&term)) {
-        return;
+    if ! list.borrow().contains(&term) || other_lists.iter().any(|lst| lst.borrow().contains(&term)) {
+        list.borrow_mut().push(term.clone());
+        list.borrow_mut().sort();
     }
 
-    list.borrow_mut().push(term.clone());
-    list.borrow_mut().sort();
 
     let surrounding_hbox = UiFactory::create_box(Orientation::Horizontal, 12, (0, 0, 0, 0));
     let chip_label = UiFactory::create_label(
