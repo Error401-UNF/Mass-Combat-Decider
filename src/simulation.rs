@@ -1,8 +1,8 @@
 // simulation.rs
 
-use gtk::{prelude::*, Align, Box, DropDown, FlowBox, Frame, Label, ListBox, Orientation, ScrolledWindow, SpinButton, StringObject, TextView};
+use gtk4::{prelude::*, Align, Box, DropDown, FlowBox, Frame, Label, ListBox, Orientation, ScrolledWindow, SpinButton, StringObject, TextView};
 use libadwaita::Application as AdwApplication;
-use gtk::ApplicationWindow as AdwWindow;
+use gtk4::ApplicationWindow as AdwWindow;
 use std::collections::HashMap;
 use std::fs::{ self, File };
 use std::io::{ self, Read, Write };
@@ -24,6 +24,7 @@ use super::interface;
 struct Combatant {
     instance_name: String,
     monster_template: Monster,
+    notes: String,
     current_hp: i32,
     max_hp: i32,
 }
@@ -34,9 +35,9 @@ pub struct SimulationState {
     combatants: Rc<RefCell<Vec<Combatant>>>,
     killed_monsters: Rc<RefCell<Vec<Combatant>>>,
     pub flow_box: FlowBox,
-    pub console_buffer: Rc<RefCell<gtk::TextBuffer>>,
-    pub console_text_view: gtk::TextView,
-    pub roll_mode_dropdown: gtk::DropDown,
+    pub console_buffer: Rc<RefCell<gtk4::TextBuffer>>,
+    pub console_text_view: gtk4::TextView,
+    pub roll_mode_dropdown: gtk4::DropDown,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -91,7 +92,7 @@ pub fn show_simulation_setup_menu(app: &AdwApplication, parent_window: &AdwWindo
     main_vbox.append(&title);
 
     let scrolled_window = UiFactory::create_scrolled_window(true, true, None);
-    let list_box = ListBox::builder().selection_mode(gtk::SelectionMode::None).build();
+    let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
     let all_monsters = monster_manager::read_all_monsters();
@@ -177,6 +178,7 @@ pub fn start_simulation_view(
                 current_hp: monster.hp,
                 monster_template: monster.clone(),
                 max_hp: monster.hp,
+                notes: String::new()
             });
         }
     }
@@ -213,7 +215,7 @@ pub fn start_simulation_view(
 
     let console_text_view = TextView::builder()
         .editable(false)
-        .wrap_mode(gtk::WrapMode::Word)
+        .wrap_mode(gtk4::WrapMode::Word)
         .build();
 
     let console_buffer = Rc::new(RefCell::new(console_text_view.buffer()));
@@ -235,7 +237,7 @@ pub fn start_simulation_view(
         .valign(Align::Start)
         .max_children_per_line(4)
         .min_children_per_line(1)
-        .selection_mode(gtk::SelectionMode::None)
+        .selection_mode(gtk4::SelectionMode::None)
         .row_spacing(12)
         .column_spacing(12)
         .margin_top(12)
@@ -248,8 +250,8 @@ pub fn start_simulation_view(
 
     // --- Roll Mode DropDown Setup ---
     let mode_options = ["Natural", "Advantage", "Disadvantage"];
-    let string_list = gtk::StringList::new(&mode_options);
-    let roll_mode_dropdown = gtk::DropDown
+    let string_list = gtk4::StringList::new(&mode_options);
+    let roll_mode_dropdown = gtk4::DropDown
         ::builder()
         .model(&string_list)
         .selected(0)
@@ -275,6 +277,12 @@ pub fn start_simulation_view(
     for combatant in shared_state.borrow().iter() {
         let card = create_combatant_card(combatant, &simulation_state);
         simulation_state.flow_box.insert(&card, -1);
+        // diable flowbox child focusing so notes section can work
+        if let Some(parent) = card.parent() {
+            if let Ok(flow_box_child) = parent.downcast::<gtk4::FlowBoxChild>() {
+                flow_box_child.set_focusable(false);
+            }
+        }
     }
 
     // --- Bottom Layout: Split Button Action Bar ---
@@ -349,7 +357,7 @@ pub fn start_simulation_view(
     scrolled_window.set_child(Some(&simulation_state.flow_box));
     main_vbox.append(&scrolled_window);
     window.set_child(Some(&main_vbox));
-    gtk::prelude::RootExt::set_focus(window, Some(&main_vbox)); // fixes a minor bug where the round scroll box would get automaticly focused (anoying)
+    gtk4::prelude::RootExt::set_focus(window, Some(&main_vbox)); // fixes a minor bug where the round scroll box would get automatically focused (annoying)
 }
 
 // =========================================================================
@@ -383,7 +391,7 @@ fn show_killed_monsters_menu(
     main_vbox.append(&title);
 
     let scrolled_window = UiFactory::create_scrolled_window(true, true, None);
-    let list_box = ListBox::builder().selection_mode(gtk::SelectionMode::None).build();
+    let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
     let killed_monsters = simulation_state.killed_monsters.borrow();
@@ -452,7 +460,7 @@ pub fn show_edit_simulation_menu(
     main_vbox.append(&title);
 
     let scrolled_window = UiFactory::create_scrolled_window(true, true, None);
-    let list_box = ListBox::builder().selection_mode(gtk::SelectionMode::None).build();
+    let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
     let all_monsters = monster_manager::read_all_monsters();
@@ -571,6 +579,7 @@ fn update_simulation_view(
                     current_hp: monster_template.hp,
                     monster_template: monster_template.clone(),
                     max_hp: monster_template.hp,
+                    notes: String::new()
                 });
             }
         }
@@ -708,10 +717,9 @@ fn create_stats_row(
         combatant.current_hp as f64
     );
     let max_hp_label = Label::new(Some(&format!("Max HP: {}", combatant.max_hp)));
+    let hit_die_label = Label::new(Some(&format!("Hit Die: {}",combatant.monster_template.hitdie)));
 
-    if combatant.current_hp <= combatant.max_hp / 2 {
-        card_frame.add_css_class("bloodied");
-    }
+
 
     let combatants_clone = Rc::clone(&simulation_state.combatants);
     let combatant_instance_name_clone = combatant.instance_name.clone();
@@ -742,6 +750,7 @@ fn create_stats_row(
     let speed_label = Label::new(Some(&format!("Speed: {}", combatant.monster_template.speed)));
 
     stats_box.append(&hp_label);
+    stats_box.append(&hit_die_label);
     stats_box.append(&hp_spin_button);
     stats_box.append(&max_hp_label);
     stats_box.append(&ac_label);
@@ -764,9 +773,43 @@ fn create_vulnerabilities_label(combatant: &Combatant) -> Option<Label> {
     label_text.pop(); // Remove trailing comma
 
     let vuln_label = UiFactory::create_label(&label_text, Align::Start, true, &[]);
-    vuln_label.set_margin_top(6);
     Some(vuln_label)
 }
+
+fn create_restistances_label(combatant: &Combatant) -> Option<Label> {
+    if combatant.monster_template.restistances.is_empty() {
+        return None; 
+    }
+
+    let mut label_text = String::from("<b>Damage Restistances:</b>");
+    for i in &combatant.monster_template.restistances {
+        label_text.push(' ');
+        label_text.push_str(i);
+        label_text.push(',');
+    }
+    label_text.pop(); // Remove trailing comma
+
+    let vuln_label = UiFactory::create_label(&label_text, Align::Start, true, &[]);
+    Some(vuln_label)
+}
+  
+fn create_invulnerability_label(combatant: &Combatant) -> Option<Label> {
+    if combatant.monster_template.immunities.is_empty() {
+        return None;
+    }
+
+    let mut label_text = String::from("<b>Damage Immunities:</b>");
+    for i in &combatant.monster_template.immunities {
+        label_text.push(' ');
+        label_text.push_str(i);
+        label_text.push(',');
+    }
+    label_text.pop(); // Remove trailing comma
+
+    let vuln_label = UiFactory::create_label(&label_text, Align::Start, true, &[]);
+    Some(vuln_label)
+}
+
 
 /// Creates Abilities info section
 fn create_abilities_label(combatant: &Combatant) -> Label {
@@ -776,19 +819,66 @@ fn create_abilities_label(combatant: &Combatant) -> Label {
         true,
         &[]
     );
+    abilities_text.set_max_width_chars(40);
     abilities_text.set_wrap(true);
     abilities_text
 }
 
+fn create_notes_section(
+    combatant: &Combatant,
+    combatants_state: Rc<RefCell<Vec<Combatant>>>, 
+    combatant_name: &str,
+)-> Box {
+    let notes_vbox = Box::builder()
+        .orientation(Orientation::Vertical)
+        .halign(Align::Start)
+        .build();
+
+
+    let notes_label = Label::new(Some("Notes:"));
+    notes_label.set_halign(Align::Start);
+    let notes = TextView::builder()
+        .editable(true)
+        .focusable(true)
+        .focus_on_click(true)
+        .height_request(60)
+        .width_request(400)
+        .build();
+
+    let buffer = notes.buffer();
+    buffer.set_text(&combatant.notes);
+
+    // Capture the name string in the callback closure
+    let target_name = combatant_name.to_string();
+
+    buffer.connect_changed(move |buf| {
+        let (start, end) = buf.bounds();
+        let updated_text = buf.text(&start, &end, false).to_string();
+
+        // Find and mutate the combatant by name on each edit
+        if let Some(internal_combatant) = combatants_state
+            .borrow_mut()
+            .iter_mut()
+            .find(|c| c.instance_name == target_name) 
+        {
+            internal_combatant.notes = updated_text;
+        }
+    });
+
+    notes_vbox.append(&notes_label);
+    notes_vbox.append(&notes);
+
+    notes_vbox}
+
 /// Helper to scroll the simulation text window to the bottom.
-fn scroll_console_to_bottom(text_view: &gtk::TextView) {
+fn scroll_console_to_bottom(text_view: &gtk4::TextView) {
     if let Some(adj) = text_view.vadjustment() {
         adj.set_value(adj.upper());
     }
 }
 
 /// Helper to prune console output to preserve layout size
-fn limit_console_buffer(buffer: &gtk::TextBuffer) {
+fn limit_console_buffer(buffer: &gtk4::TextBuffer) {
     let line_count = buffer.line_count();
     if line_count > 50 {
         let lines_to_remove = line_count - 50;
@@ -1021,32 +1111,48 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
         .margin_bottom(6)
         .margin_start(6)
         .margin_end(6)
+        .focusable(false)
         .build();
 
-    let vbox = UiFactory::create_box(Orientation::Vertical, 6, (6, 6, 6, 6));
+    let vbox = UiFactory::create_box(Orientation::Vertical, 0, (6, 6, 6, 6));
+    // vbox.set_can_focus(false);
+    vbox.set_focusable(false);
 
-    // Append 1: Header Row
+
+    // Header Row
     let header_box = create_card_header(combatant, &card_frame, simulation_state);
     vbox.append(&header_box);
 
-    // Append 2: Statistics Panel (HP, AC, Speed)
+    // Statistics Panel (HP, AC, Speed)
     let stats_box = create_stats_row(combatant, &card_frame, simulation_state);
     vbox.append(&stats_box);
 
-    // Append 3: Vulnerabilities (Optional)
+    // Vulnerabilities section
     if let Some(vuln_label) = create_vulnerabilities_label(combatant) {
         vbox.append(&vuln_label);
     }
 
-    // Append 4: Abilities Text Block
+    if let Some(res_label) = create_restistances_label(combatant) {
+        vbox.append(&res_label);
+    }
+
+    if let Some(invln_label) = create_invulnerability_label(combatant) {
+        vbox.append(&invln_label);
+    }
+
+    // Abilities Text Block
     let abilities_text = create_abilities_label(combatant);
     vbox.append(&abilities_text);
 
-    // Append 5: Saves Controls
+    // Notes section
+    let notes_text = create_notes_section(combatant,simulation_state.combatants.clone(),&combatant.instance_name);
+    vbox.append(&notes_text);
+
+    // Saves Controls
     let saves_control_panel = create_saves_grid(combatant, simulation_state);
     vbox.append(&saves_control_panel);
 
-    // Append 6: Attacks Controls (Optional)
+    // Attacks Controls
     if let Some(attacks_list) = create_attacks_list(combatant, simulation_state) {
         vbox.append(&attacks_list);
     }
@@ -1126,7 +1232,7 @@ fn get_ability_mod(combatant: &Combatant, attack: &Attack) -> i32 {
 }
 
 fn append_roll_to_console(
-    buffer: &gtk::TextBuffer,
+    buffer: &gtk4::TextBuffer,
     prefix: &str,
     won_roll: i32,
     lost_roll: Option<i32>,
@@ -1134,7 +1240,7 @@ fn append_roll_to_console(
 ) {
     let tag_table = buffer.tag_table();
     if tag_table.lookup("strikethrough").is_none() {
-        let tag = gtk::TextTag::builder().name("strikethrough").strikethrough(true).build();
+        let tag = gtk4::TextTag::builder().name("strikethrough").strikethrough(true).build();
         tag_table.add(&tag);
     }
 

@@ -1,4 +1,7 @@
 {
     "workbench.colorTheme": "Dark+",
     "rust-analyzer.server.path": "rust-analyzer",
+    "cSpell.words": [
+        "libadwaita"
+    ],
 }

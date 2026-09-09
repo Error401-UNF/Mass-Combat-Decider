@@ -1,6 +1,6 @@
-use gtk::{ prelude::* };
+use gtk4::{ CssProvider, gdk::Display, prelude::* };
 use libadwaita::Application as AdwApplication;
-use gtk::ApplicationWindow as AdwWindow;
+use gtk4::ApplicationWindow as AdwWindow;
 
 // import local script
 mod monster_manager;
@@ -11,14 +11,22 @@ mod ui_factory;
 const APP_ID: &str = "com.mass.combat.decider";
 
 fn main() {
-    if std::env::var("GTK_CSD").is_err() {
-        unsafe { std::env::set_var("GTK_CSD", "0") };
-    }
-
     // Create a new application
     let app = AdwApplication::builder() // Use AdwApplication
         .application_id(APP_ID)
         .build();
+
+    let _ = gtk4::init();
+    // load and inject theme.css file
+    let provider = CssProvider::new();
+    provider.load_from_path("src/theme.css"); 
+    if let Some(display) = Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
 
     // Check for monsters and activate appropriate UI
     if !monster_manager::check_for_monsters() {
@@ -46,14 +54,12 @@ fn first_start(app: &AdwApplication) {
 
 fn monster_list(app: &AdwApplication) {
     // Use AdwApplication
-    // Create a new window
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
         .default_width(900)
         .default_height(800)
         .build();
-
     let header_bar = libadwaita::HeaderBar::new();
     window.set_titlebar(Some(&header_bar));
     interface::switch_to_monster_list(app, &window);

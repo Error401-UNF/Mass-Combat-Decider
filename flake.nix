@@ -11,12 +11,12 @@
     # System definition
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
-    gtkDeps = with pkgs; [ gtk4 libadwaita glib xorg.libX11 ];
+    gtkDeps = with pkgs; [ gtk4 libadwaita glib libX11 libgbm binutils-unwrapped pipewire];
 
     # 1. The core Rust package (built with standard rustPlatform)
     massCombatDecider = pkgs.rustPlatform.buildRustPackage {
       pname = "MassCombatDecider";
-      version = "0.2.2";
+      version = "0.2.3";
       src = self; 
       cargoLock = { lockFile = ./Cargo.lock; };
       nativeBuildInputs = with pkgs; [ pkg-config ];
@@ -28,7 +28,7 @@
     # 2. The final bundled package (creates the AppImage-like wrapper)
     bundledApp = pkgs.stdenv.mkDerivation {
       pname = "MassCombatDecider";
-      version = "0.2.2";
+      version = "0.2.3";
       src = massCombatDecider; 
       nativeBuildInputs = [ pkgs.makeWrapper ]; 
       buildInputs = gtkDeps;
