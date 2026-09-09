@@ -19,7 +19,7 @@
       version = "0.2.3";
       src = self; 
       cargoLock = { lockFile = ./Cargo.lock; };
-      nativeBuildInputs = with pkgs; [ pkg-config ];
+      nativeBuildInputs = with pkgs; [ pkg-config wrapGAppsHook4 ];
       buildInputs = gtkDeps;
       cargoBuildFlags = [ "--bin MassCombatDecider" ];
       dontStrip = false;
