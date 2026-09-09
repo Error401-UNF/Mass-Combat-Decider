@@ -744,6 +744,7 @@ fn create_stats_row(
         } else {
             card_frame_clone.remove_css_class("bloodied");
         }
+        card_frame_clone.queue_draw();
     });
 
     let ac_label = Label::new(Some(&format!("AC: {}", combatant.monster_template.ac)));
