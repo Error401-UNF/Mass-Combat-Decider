@@ -16,7 +16,7 @@
     # 1. The core Rust package (built with standard rustPlatform)
     massCombatDecider = pkgs.rustPlatform.buildRustPackage {
       pname = "MassCombatDecider";
-      version = "0.2.3";
+      version = "0.2.4";
       src = self; 
       cargoLock = { lockFile = ./Cargo.lock; };
       nativeBuildInputs = with pkgs; [ pkg-config wrapGAppsHook4 ];
@@ -28,7 +28,7 @@
     # 2. The final bundled package (creates the AppImage-like wrapper)
     bundledApp = pkgs.stdenv.mkDerivation {
       pname = "MassCombatDecider";
-      version = "0.2.3";
+      version = "0.2.4";
       src = massCombatDecider; 
       nativeBuildInputs = [ pkgs.makeWrapper ]; 
       buildInputs = gtkDeps;
