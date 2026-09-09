@@ -24,6 +24,7 @@ use super::interface;
 struct Combatant {
     instance_name: String,
     monster_template: Monster,
+    notes: String,
     current_hp: i32,
     max_hp: i32,
 }
@@ -177,6 +178,7 @@ pub fn start_simulation_view(
                 current_hp: monster.hp,
                 monster_template: monster.clone(),
                 max_hp: monster.hp,
+                notes: String::new()
             });
         }
     }
@@ -275,6 +277,12 @@ pub fn start_simulation_view(
     for combatant in shared_state.borrow().iter() {
         let card = create_combatant_card(combatant, &simulation_state);
         simulation_state.flow_box.insert(&card, -1);
+        // diable flowbox child focusing so notes section can work
+        if let Some(parent) = card.parent() {
+            if let Ok(flow_box_child) = parent.downcast::<gtk4::FlowBoxChild>() {
+                flow_box_child.set_focusable(false);
+            }
+        }
     }
 
     // --- Bottom Layout: Split Button Action Bar ---
@@ -571,6 +579,7 @@ fn update_simulation_view(
                     current_hp: monster_template.hp,
                     monster_template: monster_template.clone(),
                     max_hp: monster_template.hp,
+                    notes: String::new()
                 });
             }
         }
@@ -707,7 +716,9 @@ fn create_stats_row(
         1.0,
         combatant.current_hp as f64
     );
-    let max_hp_label = Label::new(Some(&format!("Max HP: {} Hit Die: {}", combatant.max_hp,combatant.monster_template.hitdie)));
+    let max_hp_label = Label::new(Some(&format!("Max HP: {}", combatant.max_hp)));
+    let hit_die_label = Label::new(Some(&format!("Hit Die: {}",combatant.monster_template.hitdie)));
+
 
 
     let combatants_clone = Rc::clone(&simulation_state.combatants);
@@ -739,6 +750,7 @@ fn create_stats_row(
     let speed_label = Label::new(Some(&format!("Speed: {}", combatant.monster_template.speed)));
 
     stats_box.append(&hp_label);
+    stats_box.append(&hit_die_label);
     stats_box.append(&hp_spin_button);
     stats_box.append(&max_hp_label);
     stats_box.append(&ac_label);
@@ -811,6 +823,52 @@ fn create_abilities_label(combatant: &Combatant) -> Label {
     abilities_text.set_wrap(true);
     abilities_text
 }
+
+fn create_notes_section(
+    combatant: &Combatant,
+    combatants_state: Rc<RefCell<Vec<Combatant>>>, 
+    combatant_name: &str,
+)-> Box {
+    let notes_vbox = Box::builder()
+        .orientation(Orientation::Vertical)
+        .halign(Align::Start)
+        .build();
+
+
+    let notes_label = Label::new(Some("Notes:"));
+    notes_label.set_halign(Align::Start);
+    let notes = TextView::builder()
+        .editable(true)
+        .focusable(true)
+        .focus_on_click(true)
+        .height_request(60)
+        .width_request(400)
+        .build();
+
+    let buffer = notes.buffer();
+    buffer.set_text(&combatant.notes);
+
+    // Capture the name string in the callback closure
+    let target_name = combatant_name.to_string();
+
+    buffer.connect_changed(move |buf| {
+        let (start, end) = buf.bounds();
+        let updated_text = buf.text(&start, &end, false).to_string();
+
+        // Find and mutate the combatant by name on each edit
+        if let Some(internal_combatant) = combatants_state
+            .borrow_mut()
+            .iter_mut()
+            .find(|c| c.instance_name == target_name) 
+        {
+            internal_combatant.notes = updated_text;
+        }
+    });
+
+    notes_vbox.append(&notes_label);
+    notes_vbox.append(&notes);
+
+    notes_vbox}
 
 /// Helper to scroll the simulation text window to the bottom.
 fn scroll_console_to_bottom(text_view: &gtk4::TextView) {
@@ -1053,9 +1111,13 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
         .margin_bottom(6)
         .margin_start(6)
         .margin_end(6)
+        .focusable(false)
         .build();
 
-    let vbox = UiFactory::create_box(Orientation::Vertical, 6, (6, 6, 6, 6));
+    let vbox = UiFactory::create_box(Orientation::Vertical, 0, (6, 6, 6, 6));
+    // vbox.set_can_focus(false);
+    vbox.set_focusable(false);
+
 
     // Header Row
     let header_box = create_card_header(combatant, &card_frame, simulation_state);
@@ -1082,13 +1144,9 @@ fn create_combatant_card(combatant: &Combatant, simulation_state: &SimulationSta
     let abilities_text = create_abilities_label(combatant);
     vbox.append(&abilities_text);
 
-    // Abilities Text Block
-    let abilities_text = create_abilities_label(combatant);
-    vbox.append(&abilities_text);
-
-    // Notes Textbox
-    // let notes_box = create_abilities_label(combatant);
-    // vbox.append(&abilities_text);
+    // Notes section
+    let notes_text = create_notes_section(combatant,simulation_state.combatants.clone(),&combatant.instance_name);
+    vbox.append(&notes_text);
 
     // Saves Controls
     let saves_control_panel = create_saves_grid(combatant, simulation_state);

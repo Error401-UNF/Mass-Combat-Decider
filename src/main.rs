@@ -16,6 +16,18 @@ fn main() {
         .application_id(APP_ID)
         .build();
 
+    let _ = gtk4::init();
+    // load and inject theme.css file
+    let provider = CssProvider::new();
+    provider.load_from_path("src/theme.css"); 
+    if let Some(display) = Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
+
     // Check for monsters and activate appropriate UI
     if !monster_manager::check_for_monsters() {
         app.connect_activate(first_start);
@@ -42,27 +54,12 @@ fn first_start(app: &AdwApplication) {
 
 fn monster_list(app: &AdwApplication) {
     // Use AdwApplication
-            // 1. Load your theme.css file
-        let provider = CssProvider::new();
-        provider.load_from_path("src/theme.css"); 
-        // Note: include_str! bakes theme.css right into your compiled binary.
-        // If it's in a different directory, use standard relative paths or resources.
-
-        // 2. Attach the provider globally to the default display
-        if let Some(display) = Display::default() {
-            gtk4::style_context_add_provider_for_display(
-                &display,
-                &provider,
-                gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-            );
-        }
     let window = AdwWindow::builder() // Use AdwWindow
         .application(app)
         .title("Mass Combat Decider")
         .default_width(900)
         .default_height(800)
         .build();
-
     let header_bar = libadwaita::HeaderBar::new();
     window.set_titlebar(Some(&header_bar));
     interface::switch_to_monster_list(app, &window);
