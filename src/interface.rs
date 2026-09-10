@@ -7,9 +7,11 @@ use std::cell::{ Cell, RefCell };
 use gtk4::{ Entry, Label, ListBox, Orientation, TextView, pango, FlowBox, prelude::* };
 use gtk4::{ Button, Align, Box };
 use libadwaita::Application as AdwApplication;
+use libadwaita::ExpanderRow as AdwExpanderRow;
 use gtk4::ApplicationWindow as AdwWindow;
+use libadwaita::prelude::ExpanderRowExt;
 
-use crate::monster_manager::Monster;
+use crate::monster_manager::{Monster, MonsterFile, MonsterFolder, get_base_path};
 use crate::ui_factory::UiFactory;
 
 use super::{ monster_manager, simulation };
@@ -450,8 +452,13 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
                 Vec::new()
             },
         };
+        
+        let mon_file = MonsterFile {
+            location: get_base_path().unwrap(),
+            monster: new_monster
+        };
 
-        if let Err(e) = monster_manager::save_monster(new_monster) {
+        if let Err(e) = monster_manager::save_monster(&mon_file) {
             println!("Failed to save monster: {}", e);
             return;
         }
@@ -618,9 +625,9 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
-    let monsters = monster_manager::read_all_monsters();
+    let monsters = monster_manager::read_all_monster_folders();
 
-    if monsters.is_empty() {
+    if monsters.is_none() || monsters.as_ref().unwrap().monsters.is_empty() {
         let no_monsters_label = Label::builder()
             .label("No monsters found. Click 'Create New Monster' to add one.")
             .halign(Align::Center)
@@ -630,118 +637,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
             .build();
         list_box.append(&no_monsters_label);
     } else {
-        for monster in monsters {
-            let row = UiFactory::create_box(Orientation::Horizontal, 12, (6, 6, 12, 12));
-
-            let info_vbox = UiFactory::create_box(Orientation::Vertical, 3, (0, 0, 0, 0));
-            info_vbox.set_halign(Align::Start);
-            info_vbox.set_hexpand(true);
-
-            let name_label = UiFactory::create_label(
-                &format!("<b>{}</b>", monster.name),
-                Align::Start,
-                true,
-                &[]
-            );
-            let stats_label = UiFactory::create_label(
-                &format!(
-                    "HP: {}, AC: {}, EXP: {}, PB: {}, \nSTR: {}, DEX: {}, CON: {}, INT: {}, WIS: {}, CHA: {}",
-                    monster.hp,
-                    monster.ac,
-                    monster.exp,
-                    monster.pb,
-                    monster.mods[0],
-                    monster.mods[1],
-                    monster.mods[2],
-                    monster.mods[3],
-                    monster.mods[4],
-                    monster.mods[5]
-                ),
-                Align::Start,
-                false,
-                &[]
-            );
-
-            let attacks_str = monster.attacks
-                .iter()
-                .map(|a| a.attack_name.as_str())
-                .collect::<Vec<&str>>()
-                .join(", ");
-
-            let attacks_label = UiFactory::create_label(
-                &format!("Attacks: {}", if attacks_str.is_empty() { "None" } else { &attacks_str }),
-                Align::Start,
-                false,
-                &[]
-            );
-            attacks_label.set_ellipsize(pango::EllipsizeMode::End);
-            attacks_label.set_tooltip_text(Some(&attacks_str));
-
-            info_vbox.append(&name_label);
-            info_vbox.append(&stats_label);
-            info_vbox.append(&attacks_label);
-
-            let button_box = UiFactory::create_box(Orientation::Horizontal, 6, (0, 0, 0, 0));
-            button_box.set_halign(Align::End);
-
-            let edit_monster_button = Button::with_label("Edit");
-            let add_attack_button = Button::with_label("Add Attack");
-            let remove_attack_button = Button::with_label("Remove Attack");
-            let delete_button = Button::with_label("Delete");
-            delete_button.add_css_class("destructive-action");
-
-            button_box.append(&edit_monster_button);
-            button_box.append(&add_attack_button);
-            button_box.append(&remove_attack_button);
-            button_box.append(&delete_button);
-
-            let monster_for_edit = monster.clone();
-            let app_clone_for_edit = app.clone();
-            let window_clone_for_edit = window.clone();
-            edit_monster_button.connect_clicked(move |_| {
-                edit_monster_creation_menu(
-                    &app_clone_for_edit,
-                    &window_clone_for_edit,
-                    monster_for_edit.clone()
-                )
-            });
-
-            let monster_name_for_attack = monster.name.clone();
-            let app_clone_for_attack = app.clone();
-            let window_clone_for_attack = window.clone();
-            add_attack_button.connect_clicked(move |_| {
-                show_attack_creation_menu(
-                    &app_clone_for_attack,
-                    &window_clone_for_attack,
-                    &monster_name_for_attack
-                );
-            });
-
-            let monster_name_for_remove = monster.name.clone();
-            let app_clone_for_remove = app.clone();
-            let window_clone_for_remove = window.clone();
-            remove_attack_button.connect_clicked(move |_| {
-                show_remove_attack_menu(
-                    &app_clone_for_remove,
-                    &window_clone_for_remove,
-                    &monster_name_for_remove
-                );
-            });
-
-            let monster_name_to_delete = monster.name.clone();
-            let app_clone_for_refresh = app.clone();
-            let window_clone_for_refresh = window.clone();
-            delete_button.connect_clicked(move |_| {
-                if let Err(e) = monster_manager::delete_monster(&monster_name_to_delete) {
-                    eprintln!("Failed to delete monster '{}': {}", monster_name_to_delete, e);
-                }
-                switch_to_monster_list(&app_clone_for_refresh, &window_clone_for_refresh);
-            });
-
-            row.append(&info_vbox);
-            row.append(&button_box);
-            list_box.append(&row);
-        }
+        populate_monster_list(monsters.unwrap(), &list_box, &app, &window);
     }
 
     scrolled_window.set_child(Some(&list_box));
@@ -749,6 +645,173 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
 
     window.set_child(Some(&main_vbox));
     window.present();
+}
+
+pub fn populate_monster_list(
+    root_folder: MonsterFolder,
+    list_box: &ListBox,
+    app: &AdwApplication,
+    window: &AdwWindow,
+) {
+    // 1. Add top-level subfolders as ExpanderRows in the main ListBox
+    for subfolder in root_folder.subfolders {
+        add_subfolder_row(subfolder, list_box, app, window, None);
+    }
+
+    // 2. Add loose monsters in the root folder directly to the main ListBox
+    for monster_file in root_folder.monsters {
+        let monster_row = create_monster_row(&monster_file, app, window);
+        list_box.append(&monster_row);
+    }
+}
+
+/// Recursive helper: Handles subfolder ExpanderRows at any depth.
+fn add_subfolder_row(
+    folder: MonsterFolder,
+    list_box: &ListBox,
+    app: &AdwApplication,
+    window: &AdwWindow,
+    parent_expander: Option<&AdwExpanderRow>,
+) {
+    let expander_row = AdwExpanderRow::builder()
+        .title(&folder.folder_name)
+        .build();
+
+    // Recursively add nested subfolders
+    for subfolder in folder.subfolders {
+        add_subfolder_row(subfolder, list_box, app, window, Some(&expander_row));
+    }
+
+    // Add monsters in this subfolder to ITS expander row
+    for monster_file in folder.monsters {
+        let monster_row = create_monster_row(&monster_file, app, window);
+        expander_row.add_row(&monster_row);
+    }
+
+    // Attach this folder's expander row to its parent (or list_box if at top level)
+    if let Some(parent) = parent_expander {
+        parent.add_row(&expander_row);
+    } else {
+        list_box.append(&expander_row);
+    }
+}
+
+
+
+fn create_monster_row(monster_file:&MonsterFile, app: &AdwApplication, window: &AdwWindow) -> Box {
+    let monster = monster_file.monster.clone();
+    let row = UiFactory::create_box(Orientation::Horizontal, 12, (6, 6, 12, 12));
+
+    let info_vbox = UiFactory::create_box(Orientation::Vertical, 3, (0, 0, 0, 0));
+    info_vbox.set_halign(Align::Start);
+    info_vbox.set_hexpand(true);
+
+    let name_label = UiFactory::create_label(
+        &format!("<b>{}</b>", monster.name),
+        Align::Start,
+        true,
+        &[]
+    );
+    let stats_label = UiFactory::create_label(
+        &format!(
+            "HP: {}, AC: {}, EXP: {}, PB: {}, \nSTR: {}, DEX: {}, CON: {}, INT: {}, WIS: {}, CHA: {}",
+            monster.hp,
+            monster.ac,
+            monster.exp,
+            monster.pb,
+            monster.mods[0],
+            monster.mods[1],
+            monster.mods[2],
+            monster.mods[3],
+            monster.mods[4],
+            monster.mods[5]
+        ),
+        Align::Start,
+        false,
+        &[]
+    );
+
+    let attacks_str = monster.attacks
+        .iter()
+        .map(|a| a.attack_name.as_str())
+        .collect::<Vec<&str>>()
+        .join(", ");
+
+    let attacks_label = UiFactory::create_label(
+        &format!("Attacks: {}", if attacks_str.is_empty() { "None" } else { &attacks_str }),
+        Align::Start,
+        false,
+        &[]
+    );
+    attacks_label.set_ellipsize(pango::EllipsizeMode::End);
+    attacks_label.set_tooltip_text(Some(&attacks_str));
+
+    info_vbox.append(&name_label);
+    info_vbox.append(&stats_label);
+    info_vbox.append(&attacks_label);
+
+    let button_box = UiFactory::create_box(Orientation::Horizontal, 6, (0, 0, 0, 0));
+    button_box.set_halign(Align::End);
+
+    let edit_monster_button = Button::with_label("Edit");
+    let add_attack_button = Button::with_label("Add Attack");
+    let remove_attack_button = Button::with_label("Remove Attack");
+    let delete_button = Button::with_label("Delete");
+    delete_button.add_css_class("destructive-action");
+
+    button_box.append(&edit_monster_button);
+    button_box.append(&add_attack_button);
+    button_box.append(&remove_attack_button);
+    button_box.append(&delete_button);
+
+    let monster_for_edit = monster.clone();
+    let app_clone_for_edit = app.clone();
+    let window_clone_for_edit = window.clone();
+    edit_monster_button.connect_clicked(move |_| {
+        edit_monster_creation_menu(
+            &app_clone_for_edit,
+            &window_clone_for_edit,
+            monster_for_edit.clone()
+        )
+    });
+
+    let monster_name_for_attack = monster.name.clone();
+    let app_clone_for_attack = app.clone();
+    let window_clone_for_attack = window.clone();
+    add_attack_button.connect_clicked(move |_| {
+        show_attack_creation_menu(
+            &app_clone_for_attack,
+            &window_clone_for_attack,
+            &monster_name_for_attack
+        );
+    });
+
+    let monster_name_for_remove = monster.name.clone();
+    let app_clone_for_remove = app.clone();
+    let window_clone_for_remove = window.clone();
+    remove_attack_button.connect_clicked(move |_| {
+        show_remove_attack_menu(
+            &app_clone_for_remove,
+            &window_clone_for_remove,
+            &monster_name_for_remove
+        );
+    });
+
+    let monster_name_to_delete = monster.name.clone();
+    let monster_file_clone = monster_file.clone();
+    let app_clone_for_refresh = app.clone();
+    let window_clone_for_refresh = window.clone();
+    delete_button.connect_clicked(move |_| {
+        if let Err(e) = monster_manager::delete_monster(&monster_file_clone) {
+            eprintln!("Failed to delete monster '{}': {}", monster_name_to_delete, e);
+        }
+        switch_to_monster_list(&app_clone_for_refresh, &window_clone_for_refresh);
+    });
+
+    row.append(&info_vbox);
+    row.append(&button_box);
+
+    row
 }
 
 // =========================================================================
@@ -966,7 +1029,8 @@ fn show_remove_attack_menu(app: &AdwApplication, parent_window: &AdwWindow, mons
     list_box.add_css_class("boxed-list");
 
     let monster_data = monster_manager::read_monster(monster_name);
-    if let Some(monster) = monster_data {
+    if let Some(monster_file) = monster_data {
+        let monster = monster_file.monster;
         if monster.attacks.is_empty() {
             list_box.append(&Label::new(Some("This monster has no attacks to remove.")));
         } else {

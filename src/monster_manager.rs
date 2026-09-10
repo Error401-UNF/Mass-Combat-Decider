@@ -6,7 +6,22 @@
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+// Large scale monster folder
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MonsterFolder {
+    pub folder_name: String,
+    pub subfolders: Vec<MonsterFolder>,
+    pub monsters: Vec<MonsterFile>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MonsterFile {
+    pub location: PathBuf,
+    pub monster: Monster,
+}
+
 
 // Represents the data structure for a monster.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -67,97 +82,129 @@ pub fn get_base_path() -> io::Result<PathBuf> {
     Ok(path)
 }
 
+pub fn read_all_monster_folders() -> Option<MonsterFolder> {
+    let mut base_path = get_base_path().ok()?;
+    base_path.push("Monsters");
 
-/// Saves a monster to a JSON file.
-pub fn save_monster(monster: Monster) -> io::Result<()> {
-    // Ensure the Monsters directory exists.
-    let mut path = get_base_path()?;
-    path.push("Monsters");
-    if !path.exists() {
-        fs::create_dir_all(&path)?; 
+    if !base_path.exists() {
+        fs::create_dir_all(&base_path).ok()?;
     }
 
-    // Create the file path for the new monster.
-    path.push(format!("{}.json", monster.name));
-
-    let json_data = serde_json::to_string_pretty(&monster)?;
-    let mut file = File::create(&path)?;
-    file.write_all(json_data.as_bytes())?;
-
-    println!("Saved monster to file: {:?}", path);
-    Ok(())
+    read_monster_folder_recursive(&base_path)
 }
 
-/// Reads a monster's data from a JSON file by name.
-pub fn read_monster(monster_name: &str) -> Option<Monster> {
-    let mut path = match get_base_path() {
-        Ok(p) => p,
-        Err(_) => return None,
-    };
-    path.push("Monsters");
-    path.push(format!("{}.json", monster_name));
+fn read_monster_folder_recursive(dir_path: &Path) -> Option<MonsterFolder> {
+    let folder_name = dir_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Monsters")
+        .to_string();
 
-    let mut file = match File::open(&path) {
-        Ok(f) => f,
-        Err(_) => return None,
-    };
-
-    let mut contents = String::new();
-    if file.read_to_string(&mut contents).is_err() {
-        return None;
-    }
-
-    match serde_json::from_str(&contents) {
-        Ok(monster) => Some(monster),
-        Err(e) => {
-            eprintln!("Failed to parse monster JSON for '{}': {}", monster_name, e);
-            None
-        }
-    }
-}
-
-/// Reads all monsters from the "Monsters" directory.
-pub fn read_all_monsters() -> Vec<Monster> {
-    let mut path = match get_base_path() {
-        Ok(p) => p,
-        Err(_) => return Vec::new(),
-    };
-    path.push("Monsters");
-
+    let mut subfolders = Vec::new();
     let mut monsters = Vec::new();
-    if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "json") {
-                let monster_name = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
-                if let Some(monster) = read_monster(monster_name) {
-                    monsters.push(monster);
+
+    let entries = fs::read_dir(dir_path).ok()?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        if path.is_dir() {
+            if let Some(subfolder) = read_monster_folder_recursive(&path) {
+                subfolders.push(subfolder);
+            }
+        } else if path.extension().map_or(false, |ext| ext == "json") {
+            if let Ok(contents) = fs::read_to_string(&path) {
+                if let Ok(monster) = serde_json::from_str::<Monster>(&contents) {
+                    monsters.push(MonsterFile {
+                        location: path,
+                        monster,
+                    });
                 }
             }
         }
     }
-    monsters.sort_by( |a,b| a.name.cmp(&b.name));
-    monsters
+
+    subfolders.sort_by(|a, b| a.folder_name.cmp(&b.folder_name));
+    monsters.sort_by(|a, b| a.monster.name.cmp(&b.monster.name));
+
+    Some(MonsterFolder {
+        folder_name,
+        subfolders,
+        monsters,
+    })
 }
 
-/// Deletes a monster's JSON file.
-pub fn delete_monster(monster_name: &str) -> io::Result<()> {
-    let mut path = get_base_path()?;
-    path.push("Monsters");
-    path.push(format!("{}.json", monster_name));
-    fs::remove_file(&path)?;
-    println!("Deleted monster file: {:?}", path);
+pub fn flatten_monster_folder(monster_folder: &MonsterFolder) -> Vec<MonsterFile> {
+    let mut mon_vec: Vec<MonsterFile> = Vec::clone(&monster_folder.monsters);
+    for subfolder in monster_folder.subfolders.clone() {
+        mon_vec.append(&mut flatten_monster_folder(&subfolder).clone());
+    }
+    mon_vec
+}
+
+
+/// Finds and reads a single monster file by name, returning a `MonsterFile`.
+pub fn read_monster(monster_name: &str) -> Option<MonsterFile> {
+    let mut base_path = get_base_path().ok()?;
+    base_path.push("Monsters");
+
+    let location = find_monster_path(&base_path, monster_name)?;
+    let contents = fs::read_to_string(&location).ok()?;
+    let monster = serde_json::from_str(&contents).ok()?;
+
+    Some(MonsterFile { location, monster })
+}
+
+/// Recursively searches for a `{monster_name}.json` path.
+fn find_monster_path(dir_path: &Path, monster_name: &str) -> Option<PathBuf> {
+    let entries = fs::read_dir(dir_path).ok()?;
+    let target_filename = format!("{}.json", monster_name);
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(found_path) = find_monster_path(&path, monster_name) {
+                return Some(found_path);
+            }
+        } else if path.file_name().and_then(|s| s.to_str()) == Some(&target_filename) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// Saves a `MonsterFile` directly to its stored `location`.
+pub fn save_monster(monster_file: &MonsterFile) -> io::Result<()> {
+    if let Some(parent) = monster_file.location.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
+    let json_data = serde_json::to_string_pretty(&monster_file.monster)?;
+    let mut file = File::create(&monster_file.location)?;
+    file.write_all(json_data.as_bytes())?;
+
+    println!("Saved monster to: {:?}", monster_file.location);
     Ok(())
 }
 
+/// Deletes a monster using the `location` path stored in `MonsterFile`.
+pub fn delete_monster(monster_file: &MonsterFile) -> io::Result<()> {
+    if monster_file.location.exists() {
+        fs::remove_file(&monster_file.location)?;
+        println!("Deleted monster file: {:?}", monster_file.location);
+    }
+    Ok(())
+}
 /// Adds a new attack to an existing monster.
 pub fn add_attack_to_monster(monster_name: &str, new_attack: Attack) -> io::Result<()> {
     let mut monster_data = read_monster(monster_name)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Monster not found"))?;
 
-    monster_data.attacks.push(new_attack);
+    monster_data.monster.attacks.push(new_attack);
 
-    save_monster(monster_data)
+    save_monster(&monster_data)
 }
 
 /// Deletes an attack from a monster by name.
@@ -165,11 +212,11 @@ pub fn delete_attack_from_monster(monster_name: &str, attack_name: &str) -> io::
     let mut monster_data = read_monster(monster_name)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Monster not found"))?;
     
-    let original_len = monster_data.attacks.len();
-    monster_data.attacks.retain(|a| a.attack_name != attack_name);
+    let original_len = monster_data.monster.attacks.len();
+    monster_data.monster.attacks.retain(|a| a.attack_name != attack_name);
     
-    if monster_data.attacks.len() < original_len {
-        save_monster(monster_data)?;
+    if monster_data.monster.attacks.len() < original_len {
+        save_monster(&monster_data)?;
         Ok(())
     } else {
         Err(io::Error::new(io::ErrorKind::NotFound, "Attack not found"))
