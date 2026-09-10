@@ -174,13 +174,24 @@ fn find_monster_path(dir_path: &Path, monster_name: &str) -> Option<PathBuf> {
     None
 }
 
-pub fn make_new_folder(name:String) -> Option<PathBuf> {
-    let mut base_path = get_base_path().ok()?;
-    base_path.push("Monsters");
-    base_path.push(name);
-    let _ = fs::create_dir_all(&base_path);
+/// Creates a new directory at any depth level in the folder hierarchy.
+pub fn create_folder(folder_name: &str, parent_path: &[String]) -> io::Result<PathBuf> {
+    let mut target_dir = get_base_path()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    target_dir.push("Monsters");
 
-    Some(base_path)
+    // Append parent subfolders to target directory path
+    for part in parent_path {
+        target_dir.push(part);
+    }
+    target_dir.push(folder_name);
+
+    if !target_dir.exists() {
+        fs::create_dir_all(&target_dir)?;
+        println!("Created folder: {:?}", target_dir);
+    }
+
+    Ok(target_dir)
 }
 
 
@@ -227,6 +238,43 @@ pub fn move_monster_to_folder(
     }
 
     Ok(dest_file)
+}
+
+pub fn move_folder_to_folder(
+    src_folder_path: &Path,
+    dest_folder_path: &[String],
+) -> io::Result<PathBuf> {
+    let mut dest_dir = get_base_path()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    dest_dir.push("Monsters");
+    for folder_name in dest_folder_path {
+        dest_dir.push(folder_name);
+    }
+
+    // cycle prevention: A folder cannot be moved into itself or its own descendant
+    if dest_dir.starts_with(src_folder_path) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Cannot move a folder into itself or one of its subfolders",
+        ));
+    }
+
+    let folder_name = src_folder_path
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid folder name"))?;
+
+    dest_dir.push(folder_name);
+
+    if src_folder_path != dest_dir {
+        fs::rename(src_folder_path, &dest_dir)?;
+        println!("Moved folder from {:?} to {:?}", src_folder_path, dest_dir);
+    }
+    else {
+        println!("folder name {:?} identical to {:?}. going to {:?}, with folder name {:?}", src_folder_path, dest_dir, dest_folder_path, folder_name);
+
+    }
+
+    Ok(dest_dir)
 }
 
 /// Saves a `MonsterFile` directly to its stored `location`.
