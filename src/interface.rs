@@ -2,19 +2,56 @@
 //
 // This file manages the user interface for the Mass Combat Decider application.
 
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::cell::{ Cell, RefCell };
-use gtk4::{ Entry, Label, ListBox, Orientation, TextView, pango, FlowBox, prelude::* };
-use gtk4::{ Button, Align, Box };
+use gtk4::{ Entry, FlowBox, Label, ListBox, Orientation, TextView, gdk, pango, prelude::* };
+use gtk4::{ Button, Align, Box};
 use libadwaita::Application as AdwApplication;
 use libadwaita::ExpanderRow as AdwExpanderRow;
 use gtk4::ApplicationWindow as AdwWindow;
 use libadwaita::prelude::ExpanderRowExt;
 
-use crate::monster_manager::{Monster, MonsterFile, MonsterFolder, get_base_path};
+use crate::monster_manager::{Monster, MonsterFile, MonsterFolder, get_base_path, make_new_folder, move_monster_to_folder, read_monster, remove_folder};
 use crate::ui_factory::UiFactory;
 
 use super::{ monster_manager, simulation };
+
+
+
+// =========================================================================
+// Folder Management
+// =========================================================================
+pub fn show_folder_creation_menu(app: &AdwApplication, parent_window: &AdwWindow) {
+    let window = AdwWindow::builder()
+        .application(app)
+        .title("folder")
+        .transient_for(parent_window)
+        .default_width(200)
+        .modal(true)
+        .build();
+    
+    let menu_box = UiFactory::create_box(Orientation::Vertical, 6, (3,3,3,3));
+    let title_label = UiFactory::create_label("Create Folder", Align::Center, false, &[]);
+    let text_form = UiFactory::create_entry(None, Some("folder name..."), 20);
+    let create_button = UiFactory::create_button("Create", Align::Center, None);
+
+    let app_clone = app.clone();
+    let text_form_clone = text_form.clone();
+    let window_clone = window.clone();
+    let parent_window_clone = parent_window.clone();
+    create_button.connect_clicked(move |_| {
+        make_new_folder(text_form_clone.text().to_string());
+        window_clone.close();
+        switch_to_monster_list(&app_clone, &parent_window_clone);
+    });
+    menu_box.append(&title_label);
+    menu_box.append(&text_form);
+    menu_box.append(&create_button);
+
+    window.set_child(Some(&menu_box));
+    window.present();
+}
 
 // =========================================================================
 // Monster Creation/Editing Form
@@ -76,6 +113,7 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
     
     let title_text = if is_edit { "Edit Monster" } else { "Create a Monster" };
     let submit_btn_text = if is_edit { "Edit Monster" } else { "Create Monster" };
+
 
     let window = AdwWindow::builder()
         .application(app)
@@ -396,6 +434,13 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
             return;
         }
 
+        let new_path = if read_monster(&name).is_some() { read_monster(&name).unwrap().location } else { 
+            let mut new_path = get_base_path().unwrap();
+            new_path.push("Monsters");
+            new_path.push(format!("{}.json",&name));
+            new_path 
+        };
+
         let hp = parse_int(&hp_entry_clone);
         let ac = parse_int(&ac_entry_clone);
         let speed = parse_int(&speed_entry_clone);
@@ -454,7 +499,7 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
         };
         
         let mon_file = MonsterFile {
-            location: get_base_path().unwrap(),
+            location: new_path.clone(),
             monster: new_monster
         };
 
@@ -476,7 +521,7 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
     window.present();
 }
 
-/// Helper function to build a clean resistance tag chip and manage UI changes and backing state vectors.
+/// Helper functions
 fn add_resistance_chip(flow_box: &FlowBox, list: Rc<RefCell<Vec<String>>>, other_lists: &[Rc<RefCell<Vec<String>>>], term: String,label_suffix: &str, no_res_options: &Rc<Cell<bool>>, no_res_label: &Label,) {
     if term.trim().is_empty() {
         return;
@@ -524,6 +569,49 @@ fn add_resistance_chip(flow_box: &FlowBox, list: Rc<RefCell<Vec<String>>>, other
     });
 
     flow_box.insert(&surrounding_hbox, -1);
+}
+
+// drag helper functions
+pub fn attach_monster_drag_source(monster_row: &impl IsA<gtk4::Widget>, location: &Path) {
+    let drag_source = gtk4::DragSource::new();
+    drag_source.set_actions(gdk::DragAction::MOVE);
+
+    let path_string = location.to_string_lossy().to_string();
+
+    drag_source.connect_prepare(move |_, _, _| {
+        // Send the file path string as the drag payload
+        let value = path_string.to_value();
+        Some(gdk::ContentProvider::for_value(&value))
+    });
+
+    monster_row.add_controller(drag_source);
+}
+
+pub fn attach_folder_drop_target<F>(
+    target_widget: &impl IsA<gtk4::Widget>,
+    folder_path: Vec<String>,
+    on_complete_refresh: F,
+) where
+    F: Fn() + 'static,
+{
+    // Configure drop target to expect String types
+    let drop_target = gtk4::DropTarget::new(glib::Type::STRING, gdk::DragAction::MOVE);
+
+    drop_target.connect_drop(move |_, value, _, _| {
+        if let Ok(src_path_str) = value.get::<String>() {
+            let src_path = PathBuf::from(src_path_str);
+
+            // Move the file on disk
+            if move_monster_to_folder(&src_path, &folder_path).is_ok() {
+                // Re-read files and rebuild the UI list
+                on_complete_refresh();
+                return true;
+            }
+        }
+        false
+    });
+
+    target_widget.add_controller(drop_target);
 }
 
 // =========================================================================
@@ -577,6 +665,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     let top_button_box = UiFactory::create_box(Orientation::Horizontal, 6, (0, 12, 0, 0));
     top_button_box.set_halign(Align::Center);
 
+    let add_folder_button = UiFactory::create_button("Add Folder", Align::Center, None);
     let create_monster_button = UiFactory::create_button("Create New Monster", Align::Center, None);
     let start_simulation_button = UiFactory::create_button(
         "Start Simulation",
@@ -589,6 +678,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
         None
     );
 
+    top_button_box.append(&add_folder_button);
     top_button_box.append(&create_monster_button);
     top_button_box.append(&start_simulation_button);
     if simulation::check_for_simulation() {
@@ -598,6 +688,11 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
     main_vbox.append(&title_label);
     main_vbox.append(&top_button_box);
 
+    let app_clone_folder = app.clone();
+    let window_clone_folder = window.clone();
+    add_folder_button.connect_clicked(move |_| {
+        show_folder_creation_menu(&app_clone_folder, &window_clone_folder)
+    });
     let app_clone = app.clone();
     let window_clone = window.clone();
     create_monster_button.connect_clicked(move |_| {
@@ -627,7 +722,7 @@ pub fn switch_to_monster_list(app: &AdwApplication, window: &AdwWindow) {
 
     let monsters = monster_manager::read_all_monster_folders();
 
-    if monsters.is_none() || monsters.as_ref().unwrap().monsters.is_empty() {
+    if monsters.is_none() || (monsters.as_ref().unwrap().monsters.is_empty() && monsters.as_ref().unwrap().subfolders.is_empty()) {
         let no_monsters_label = Label::builder()
             .label("No monsters found. Click 'Create New Monster' to add one.")
             .halign(Align::Center)
@@ -655,7 +750,7 @@ pub fn populate_monster_list(
 ) {
     // 1. Add top-level subfolders as ExpanderRows in the main ListBox
     for subfolder in root_folder.subfolders {
-        add_subfolder_row(subfolder, list_box, app, window, None);
+        add_subfolder_row(subfolder, list_box, app, window, None, &[]);
     }
 
     // 2. Add loose monsters in the root folder directly to the main ListBox
@@ -663,6 +758,12 @@ pub fn populate_monster_list(
         let monster_row = create_monster_row(&monster_file, app, window);
         list_box.append(&monster_row);
     }
+
+    let drag_app_clone = app.clone();
+    let drag_window_clone = window.clone();
+    attach_folder_drop_target(list_box, vec![].clone(), move || {
+        switch_to_monster_list(&drag_app_clone, &drag_window_clone);
+    });
 }
 
 /// Recursive helper: Handles subfolder ExpanderRows at any depth.
@@ -672,14 +773,34 @@ fn add_subfolder_row(
     app: &AdwApplication,
     window: &AdwWindow,
     parent_expander: Option<&AdwExpanderRow>,
+    parent_path: &[String],
 ) {
+    let mut current_path = parent_path.to_vec();
+    current_path.push(folder.folder_name.clone());
+
     let expander_row = AdwExpanderRow::builder()
         .title(&folder.folder_name)
         .build();
 
+    let delete_button = UiFactory::create_button("Delete Folder", Align::Start, Some("flat"));
+
+    let path_for_deletion = current_path.clone();
+    let expander_row_clone = expander_row.clone();
+
+    delete_button.connect_clicked(move |_| {
+        if let Some(_path) = remove_folder(path_for_deletion.clone()) {
+            if let Some(parent) = expander_row_clone.parent() {
+                if let Ok(list) = parent.downcast::<ListBox>() {
+                    list.remove(&expander_row_clone);
+                }
+            }
+        }
+    });
+    expander_row.add_action(&delete_button);
+
     // Recursively add nested subfolders
     for subfolder in folder.subfolders {
-        add_subfolder_row(subfolder, list_box, app, window, Some(&expander_row));
+        add_subfolder_row(subfolder, list_box, app, window, Some(&expander_row), &current_path);
     }
 
     // Add monsters in this subfolder to ITS expander row
@@ -694,9 +815,13 @@ fn add_subfolder_row(
     } else {
         list_box.append(&expander_row);
     }
+
+    let drag_app_clone = app.clone();
+    let drag_window_clone = window.clone();
+    attach_folder_drop_target(&expander_row, current_path.clone(), move || {
+        switch_to_monster_list(&drag_app_clone, &drag_window_clone);
+    });
 }
-
-
 
 fn create_monster_row(monster_file:&MonsterFile, app: &AdwApplication, window: &AdwWindow) -> Box {
     let monster = monster_file.monster.clone();
@@ -811,6 +936,7 @@ fn create_monster_row(monster_file:&MonsterFile, app: &AdwApplication, window: &
     row.append(&info_vbox);
     row.append(&button_box);
 
+    attach_monster_drag_source(&row, &monster_file.location);
     row
 }
 

@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 // Large scale monster folder
@@ -81,6 +81,7 @@ pub fn get_base_path() -> io::Result<PathBuf> {
     path.push("MonsterManager");
     Ok(path)
 }
+
 
 pub fn read_all_monster_folders() -> Option<MonsterFolder> {
     let mut base_path = get_base_path().ok()?;
@@ -171,6 +172,61 @@ fn find_monster_path(dir_path: &Path, monster_name: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+pub fn make_new_folder(name:String) -> Option<PathBuf> {
+    let mut base_path = get_base_path().ok()?;
+    base_path.push("Monsters");
+    base_path.push(name);
+    let _ = fs::create_dir_all(&base_path);
+
+    Some(base_path)
+}
+
+
+pub fn remove_folder(path: Vec<String>) -> Option<PathBuf> {
+    let mut base_path = get_base_path().ok()?;
+    base_path.push("Monsters");
+    for name in path {
+        base_path.push(name);
+    }
+    
+    // remove_dir_all deletes the folder AND all contained files/subfolders recursively
+    if fs::remove_dir_all(&base_path).is_ok() {
+        Some(base_path)
+    } else {
+        None
+    }
+}
+
+pub fn move_monster_to_folder(
+    src_location: &Path,
+    dest_folder_path: &[String],
+) -> io::Result<PathBuf> {
+    let mut dest_dir = get_base_path()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    dest_dir.push("Monsters");
+    for folder_name in dest_folder_path {
+        dest_dir.push(folder_name);
+    }
+
+    if !dest_dir.exists() {
+        fs::create_dir_all(&dest_dir)?;
+    }
+
+    let file_name = src_location
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file name"))?;
+
+    let mut dest_file = dest_dir;
+    dest_file.push(file_name);
+
+    if src_location != dest_file {
+        fs::rename(src_location, &dest_file)?;
+        println!("Moved monster to: {:?}", dest_file);
+    }
+
+    Ok(dest_file)
 }
 
 /// Saves a `MonsterFile` directly to its stored `location`.
