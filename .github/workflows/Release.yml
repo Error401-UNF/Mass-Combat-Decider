@@ -51,7 +51,7 @@ jobs:
           mv MassCombatDecider-x86_64.AppImage MassCombatDecider-Linux.AppImage
 
       - name: Upload Linux Intermediate Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-bin
           path: MassCombatDecider-Linux.AppImage
@@ -167,7 +167,7 @@ jobs:
       shell: msys2 {0}
       
     - name: Upload Windows Intermediate Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: windows-bin
         path: MassCombatDecider-Windows.zip
@@ -190,19 +190,19 @@ jobs:
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Download Linux Build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-bin
           path: ./release-assets
 
       - name: Download Windows Build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows-bin
           path: ./release-assets
 
       - name: Publish Official GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.get_version.outputs.tag }}
           name: Version ${{ steps.get_version.outputs.tag }}
