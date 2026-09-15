@@ -11,6 +11,8 @@ use std::cell::RefCell;
 use rand::Rng;
 use chrono;
 
+use crate::monster_manager::flatten_monster_folder;
+
 use super::monster_manager::{ self, Monster, Attack, get_base_path };
 use super::ui_factory::{ UiFactory };
 use super::interface;
@@ -95,13 +97,14 @@ pub fn show_simulation_setup_menu(app: &AdwApplication, parent_window: &AdwWindo
     let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
-    let all_monsters = monster_manager::read_all_monsters();
+    let all_monsters = flatten_monster_folder(&monster_manager::read_all_monster_folders().unwrap());
     let mut spin_buttons: Vec<(SpinButton, Monster)> = Vec::new();
 
     if all_monsters.is_empty() {
         list_box.append(&Label::new(Some("No monsters exist. Please create one first.")));
     } else {
-        for monster in all_monsters {
+        for monster_file in all_monsters {
+            let monster = monster_file.monster;
             let row = UiFactory::create_box(Orientation::Horizontal, 6, (6, 6, 6, 6));
             let name_label = UiFactory::create_label(&monster.name, Align::Start, false, &[]);
             name_label.set_hexpand(true);
@@ -463,7 +466,7 @@ pub fn show_edit_simulation_menu(
     let list_box = ListBox::builder().selection_mode(gtk4::SelectionMode::None).build();
     list_box.add_css_class("boxed-list");
 
-    let all_monsters = monster_manager::read_all_monsters();
+    let all_monsters = flatten_monster_folder(&monster_manager::read_all_monster_folders().unwrap());
     let mut spin_buttons: Vec<(SpinButton, Monster)> = Vec::new();
     let initial_counts: HashMap<String, i32> = {
         let combatants = simulation_state.combatants.borrow();
@@ -477,7 +480,8 @@ pub fn show_edit_simulation_menu(
     if all_monsters.is_empty() {
         list_box.append(&Label::new(Some("No monsters exist. Please create one first.")));
     } else {
-        for monster in all_monsters {
+        for monster_file in all_monsters {
+            let monster = monster_file.monster;
             let row = UiFactory::create_box(Orientation::Horizontal, 6, (6, 6, 6, 6));
             let name_label = UiFactory::create_label(&monster.name, Align::Start, false, &[]);
             name_label.set_hexpand(true);
