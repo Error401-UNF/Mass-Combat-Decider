@@ -251,6 +251,8 @@ fn show_monster_form(app: &AdwApplication, parent_window: &AdwWindow, existing_m
         "Radiant",
         "Slashing",
         "Thunder",
+        "Non Magical Attacks",
+        "Nonsilvered Attacks",
     ];
     let res_dropdown = UiFactory::create_dropdown(&res_options, None, Some(30));
     res_dropdown.set_margin_end(170);
