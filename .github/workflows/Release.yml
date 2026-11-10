@@ -68,21 +68,21 @@ jobs:
     - name: Setup MSYS2 Environment
       uses: msys2/setup-msys2@v2
       with:
-        msystem: MINGW64 
+        msystem: CLANG64 
         update: true 
 
-    # 2. Install Dependencies (Added ntldd to the package string)
+    # 2. Install Dependencies (Using CLANG64 package prefix)
     - name: Install GTK4 and Rust Dependencies
       id: install_deps
       run: |
-        PACKAGES="mingw-w64-x86_64-toolchain \
-          mingw-w64-x86_64-pkg-config \
-          mingw-w64-x86_64-gtk4 \
-          mingw-w64-x86_64-libadwaita \
-          mingw-w64-x86_64-glib2 \
-          mingw-w64-x86_64-gobject-introspection \
-          mingw-w64-x86_64-rust \
-          mingw-w64-x86_64-ntldd \
+        PACKAGES="mingw-w64-clang-x86_64-toolchain \
+          mingw-w64-clang-x86_64-pkg-config \
+          mingw-w64-clang-x86_64-gtk4 \
+          mingw-w64-clang-x86_64-libadwaita \
+          mingw-w64-clang-x86_64-glib2 \
+          mingw-w64-clang-x86_64-gobject-introspection \
+          mingw-w64-clang-x86_64-rust \
+          mingw-w64-clang-x86_64-ntldd \
           zip \
           git \
           make"
@@ -130,8 +130,8 @@ jobs:
             # Convert line to lowercase using bash built-ins for a safe check
             line_lower="${line,,}"
             
-            # Check if the line contains "mingw64" using pure Bash matching
-            if [[ "$line_lower" == *"mingw64"* && "$line" == *"=> "* ]]; then
+            # Check if the line contains "clang64" using pure Bash matching
+            if [[ "$line_lower" == *"clang64"* && "$line" == *"=> "* ]]; then
                 
                 # Split line at "=> " to get everything on the right side
                 right_side="${line#*=> }"
@@ -156,7 +156,7 @@ jobs:
         done
         
         echo "Copying ONLY bare-minimum required GLib schemas (No Images!)"
-        cp /mingw64/share/glib-2.0/schemas/*.gschema.xml "${PACKAGE_DIR}/share/glib-2.0/schemas/"
+        cp /clang64/share/glib-2.0/schemas/*.gschema.xml "${PACKAGE_DIR}/share/glib-2.0/schemas/"
         
         echo "Compiling schemas for the portable environment..."
         TARGET_SCHEMA_DIR=$(cygpath -w "${PACKAGE_DIR}/share/glib-2.0/schemas")
