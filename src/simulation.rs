@@ -711,7 +711,7 @@ fn create_stats_row(
     card_frame: &Frame,
     simulation_state: &SimulationState
 ) -> Box {
-    let stats_box = UiFactory::create_box(Orientation::Horizontal, 12, (0, 0, 0, 0));
+    let stats_box = UiFactory::create_box(Orientation::Horizontal, 6, (0, 0, 0, 0));
 
     let hp_label = Label::new(Some("HP:"));
     let hp_spin_button = UiFactory::create_spin_button(
@@ -720,9 +720,7 @@ fn create_stats_row(
         1.0,
         combatant.current_hp as f64
     );
-    let max_hp_label = Label::new(Some(&format!("Max HP: {}", combatant.max_hp)));
-    let hit_die_label = Label::new(Some(&format!("Hit Die: {}",combatant.monster_template.hitdie)));
-
+    let max_hp_label = Label::new(Some(&format!("Max HP: {} ({})", combatant.max_hp, combatant.monster_template.hitdie)));
 
 
     let combatants_clone = Rc::clone(&simulation_state.combatants);
@@ -755,7 +753,6 @@ fn create_stats_row(
     let speed_label = Label::new(Some(&format!("Speed: {}", combatant.monster_template.speed)));
 
     stats_box.append(&hp_label);
-    stats_box.append(&hit_die_label);
     stats_box.append(&hp_spin_button);
     stats_box.append(&max_hp_label);
     stats_box.append(&ac_label);
@@ -847,7 +844,7 @@ fn create_notes_section(
         .focusable(true)
         .focus_on_click(true)
         .height_request(60)
-        .width_request(400)
+        .width_request(300)
         .build();
 
     let buffer = notes.buffer();
@@ -900,7 +897,7 @@ fn create_saves_grid(combatant: &Combatant, simulation_state: &SimulationState) 
     label.set_margin_top(6);
     container.append(&label);
 
-    let saves_box = UiFactory::create_box(Orientation::Horizontal, 6, (0, 0, 0, 0));
+    let saves_box = UiFactory::create_box(Orientation::Horizontal, 3, (0, 0, 0, 0));
     let stats = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
 
     for stat_name in stats.iter() {
